@@ -31,6 +31,8 @@ DATA_PATH = os.path.abspath(os.path.join(PROJECT_PATH, "stored_data"))
 if not os.path.exists(DATA_PATH):
     os.makedirs(DATA_PATH)
 
+REPLY_SUBREDDIT_LIST = ["funny", "pics", "aww", "gifs", "gaming", "facepalm"]
+
 #Commands are discovered here, and tasks/inputs/formats are imported using only these modules
 INSTALLED_APPS = [
     'simpsons-matcher.inputs',
