@@ -15,8 +15,11 @@ from itertools import chain
 from percept.tests.framework import Tester
 import os
 from percept.conf.base import settings
+import re
 
 log = logging.getLogger(__name__)
+
+PUNCTUATION = ["]",".","!","?"]
 
 def make_df(datalist, labels, name_prefix=""):
     df = pd.DataFrame(datalist).T
@@ -51,7 +54,11 @@ class CleanupScriptList(Task):
         script_removal_values = [""]
         for r in script_removal_values:
             data = data[data["script"]!=r]
+        log.info(data)
+        data['episode_name'] = [i.split('\n')[0].strip() for i in data['episode_name']]
+        data['episode_code'] = [i.split('/')[-1].split('.html')[0] for i in data['url']]
 
+        data.index = range(data.shape[0])
         return data
 
 class CleanupScriptText(Task):
@@ -75,7 +82,26 @@ class CleanupScriptText(Task):
         Used in the predict phase, after training.  Override
         """
 
+        voice_scripts = []
         for i in xrange(0,data.shape[0]):
-            pass
+            script_lines = data['script'][i].split('\n')
+            voice_lines = []
+            current_line = ""
+            for (i,line) in enumerate(script_lines):
+                line = line.strip()
+                if line.startswith("[") and line.endswith("]"):
+                    continue
+                voice_line = re.search('\w+:',line)
+                if voice_line is not None:
+                    voice_lines.append(current_line)
+                    current_line = line
+                elif len(line)==0 and len(current_line)>0:
+                    voice_lines.append(current_line)
+                    current_line = ""
+                elif len(current_line)>0:
+                    current_line+=line
+            voice_scripts.append("\n".join([l for l in voice_lines if len(l)>0 and "{" not in l and "=" not in l]))
+
+        data['voice_script'] = voice_scripts
 
         return data
