@@ -52,5 +52,5 @@ class SubtitleSpider(CrawlSpider):
 
         script['url'] = response.url
         script['episode_name'] = "".join(x.select("//h3/text()").extract())
-        script['script'] = " ".join(x.select("//div[@class='episode_script']/text()").extract())
+        script['script'] = "\n".join(x.select("//div[@class='episode_script']/text()").extract())
         return script

@@ -153,11 +153,51 @@ class CleanupScriptText(Task):
                     voice_lines.append(" ")
                 elif len(current_line)>0:
                     current_line+=" " + line
-            voice_scripts.append("\n".join([l for l in voice_lines if len(l)>0 and "{" not in l and "=" not in l]))
+            script_text = "\n".join([l for l in voice_lines if len(l)>0 and "{" not in l and "=" not in l])
+            script_text = re.sub("\[.+\]","",script_text)
+            voice_scripts.append(script_text.strip())
 
         data['voice_script'] = voice_scripts
 
         return data
+
+class ReformatScriptText(Task):
+    data = Complex()
+    voice_lines = Complex()
+
+    data_format = SimpsonsFormats.dataframe
+
+    category = RegistryCategories.preprocessors
+    namespace = get_namespace(__module__)
+
+    help_text = "Cleanup simpsons scripts."
+
+    def train(self, data, target, **kwargs):
+        """
+        Used in the training phase.  Override.
+        """
+        self.data = data
+        self.predict(self.data)
+
+    def predict(self, data, **kwargs):
+        """
+        Used in the predict phase, after training.  Override
+        """
+
+        script_segments = []
+        for script in data['voice_script']:
+            lines = script.split("\n")
+            segment = []
+            for line in lines:
+                if line.strip()!="":
+                    line_split = line.split(":")
+                    segment.append({'speaker' : line_split[0].strip(),
+                                    'line' : ":".join(line_split[1:]).strip()})
+                else:
+                    if len(segment)>0:
+                        script_segments.append(segment)
+                        segment = []
+        self.voice_lines = script_segments
 
 class CleanupTranscriptList(CleanupScriptList):
     help_text = "Cleanup simpsons transcripts."
@@ -193,5 +233,11 @@ class CleanupTranscriptText(CleanupScriptText):
         """
         Used in the predict phase, after training.  Override
         """
+        voice_scripts = []
+        for i in xrange(0,data.shape[0]):
+            script_lines = data['script'][i].split('\n')
+            for line in script_lines:
+                line = re.sub("-","",line)
+                line = line.strip()
         return data
 
