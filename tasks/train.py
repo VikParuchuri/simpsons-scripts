@@ -15,11 +15,14 @@ from inputs.inputs import SimpsonsFormats
 from percept.utils.models import RegistryCategories, get_namespace
 from percept.conf.base import settings
 import os
+from percept.tasks.train import Train
+from sklearn.ensemble import RandomForestRegressor
 
 import logging
 log = logging.getLogger(__name__)
 
 MAX_FEATURES = 100
+DISTANCE_MIN=1
 
 def make_df(datalist, labels, name_prefix=""):
     df = pd.DataFrame(datalist).T
@@ -248,6 +251,19 @@ class FeatureExtractor(Task):
         }
         return data
 
+class RandomForestTrain(Train):
+    """
+    A class to train a random forest
+    """
+    colnames = List()
+    clf = Complex()
+    category = RegistryCategories.algorithms
+    namespace = get_namespace(__module__)
+    algorithm = RandomForestRegressor
+    args = {'n_estimators' : 300, 'min_samples_leaf' : 1, 'compute_importances' : True}
+
+    help_text = "Train and predict with Random Forest."
+
 class KNNRF(Task):
     data = Complex()
 
@@ -268,9 +284,48 @@ class KNNRF(Task):
         """
         Used in the predict phase, after training.  Override
         """
+        prediction_frames = []
         test_data = data['data']
+        match_data = data['train_frame'].iloc[MAX_FEATURES:(MAX_FEATURES*2+1)]
+        for script in test_data['voice_script']:
+            lines = script.split("\n")
+            speaker_code = [-1 for i in xrange(0,lines)]
+            for (i,line) in enumerate(lines):
+                if i>0:
+                    previous_line = lines[i-1]
+                    previous_speaker = speaker_code[i-1]
+                else:
+                    previous_line = ""
+                    previous_speaker=  -1
+
+                if i>1:
+                    two_back_speaker = speaker_code[i-2]
+                else:
+                    two_back_speaker = -1
+
+                if i<(len(lines)-1):
+                    next_line = lines[i+1]
+                else:
+                    next_line = ""
+
+                prev_features = data['vectorizer'].get_features(previous_line)
+                cur_features = data['vectorizer'].get_features(line)
+                next_features = data['vectorizer'].get_features(next_line)
+
+                meta_features = make_df([[two_back_speaker], [previous_speaker]],["two_back_speaker", "previous_speaker"])
+                train_frame = pd.concat([prev_features,cur_features,next_features,meta_features],axis=1)
+
+                nearest_match, distance = self.find_nearest_match(cur_features,match_data)
+                if distance<DISTANCE_MIN:
+                    speaker_code[i] = data['train_frame']['speaker_code'][nearest_match]
+                    continue
 
 
+
+    def find_nearest_match(self, features, matrix):
+        distances = [euclidean(u, features) for u in matrix]
+        nearest_match = distances.index(min(distances))
+        return nearest_match, min(distances)
 
 class KNNCommentMatcher(object):
     def __init__(self, train_data):
