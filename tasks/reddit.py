@@ -101,4 +101,4 @@ class PullDownComments(Task):
                     continue
                 write_data_to_cache(items_done, "items_done.p", "comment_id")
         except Exception:
-        log.exception("Could not pull down comment.")
+            log.exception("Could not pull down comment.")

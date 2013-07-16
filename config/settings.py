@@ -1,5 +1,5 @@
 """
-Settings for simpsons-matcher
+Settings for simpsons-scripts
 """
 
 from path import path
@@ -21,7 +21,7 @@ RUNNER = "percept.workflows.runners.SingleThreadedRunner"
 DATASTORE = "percept.workflows.datastores.FileStore"
 
 #Namespace to give the modules in the registry
-NAMESPACE = "simpsons-matcher"
+NAMESPACE = "simpsons-scripts"
 
 #What severity of error to log to file and console.  One of "DEBUG", "WARN", "INFO", "ERROR"
 LOG_LEVEL = "DEBUG"
@@ -31,12 +31,10 @@ DATA_PATH = os.path.abspath(os.path.join(PROJECT_PATH, "stored_data"))
 if not os.path.exists(DATA_PATH):
     os.makedirs(DATA_PATH)
 
-REPLY_SUBREDDIT_LIST = ["funny", "pics", "aww", "gifs", "gaming", "facepalm"]
-
 #Commands are discovered here, and tasks/inputs/formats are imported using only these modules
 INSTALLED_APPS = [
-    'simpsons-matcher.inputs',
-    'simpsons-matcher.formatters',
-    'simpsons-matcher.tasks',
-    'simpsons-matcher.workflows'
+    'simpsons-scripts.inputs',
+    'simpsons-scripts.formatters',
+    'simpsons-scripts.tasks',
+    'simpsons-scripts.workflows'
 ]

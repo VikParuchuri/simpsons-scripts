@@ -52,7 +52,9 @@ class CleanupScriptList(Task):
         for r in script_removal_values:
             data = data[data["script"]!=r]
 
-class CleanupScriptTexgt(Task):
+        return data
+
+class CleanupScriptText(Task):
     data = Complex()
 
     data_format = SimpsonsFormats.dataframe
@@ -75,3 +77,5 @@ class CleanupScriptTexgt(Task):
 
         for i in xrange(0,data.shape[0]):
             pass
+
+        return data

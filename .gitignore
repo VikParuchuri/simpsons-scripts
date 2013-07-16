@@ -41,4 +41,5 @@ nosetests.xml
 #percept
 percept.log
 stored_data
+data
 percept/docs/_build
