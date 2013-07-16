@@ -341,7 +341,7 @@ class KNNRF(Task):
                     speaker_code[i] = data['speakers']['speaker_code'][nearest_match]
                     continue
                 speaker_code[i] = alg.predict(train_frame)[0]
-            df = make_df([lines,speaker_code,[reverse_speaker_code_dict[s] for s in speaker_code]],["line","speaker_code","speaker"])
+            df = make_df([lines,speaker_code,[reverse_speaker_code_dict[round(s)] for s in speaker_code]],["line","speaker_code","speaker"])
             self.predictions.append(df)
         return data
 
