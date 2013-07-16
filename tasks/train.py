@@ -3,7 +3,6 @@ from itertools import chain
 from sklearn.feature_extraction.text import CountVectorizer
 import numpy as np
 import pandas as pd
-from scipy.spatial.distance import euclidean
 from fisher import pvalue
 import re
 import collections
@@ -172,7 +171,7 @@ class Vectorizer(object):
         if isinstance(text, list):
             text = [text[0] + new_text]
         else:
-            text = text + new_text
+            text = [text + new_text]
         return (self.vectorizer.transform(text).todense())
 
 class FeatureExtractor(Task):
@@ -307,6 +306,8 @@ class KNNRF(Task):
 
         test_data = data['data']
         match_data = data['current_features']
+        reverse_speaker_code_dict = {data['speaker_code_dict'][k] : k for k in data['speaker_code_dict']}
+        self.predictions = []
         for script in test_data['voice_script']:
             lines = script.split("\n")
             speaker_code = [-1 for i in xrange(0,len(lines))]
@@ -337,15 +338,18 @@ class KNNRF(Task):
 
                 nearest_match, distance = self.find_nearest_match(cur_features,match_data)
                 if distance<DISTANCE_MIN:
-                    speaker_code[i] = data['train_frame']['speaker_code'][nearest_match]
+                    speaker_code[i] = data['speakers']['speaker_code'][nearest_match]
                     continue
                 speaker_code[i] = alg.predict(train_frame)[0]
-            df = make_df([lines,speaker_code,[data['speaker_code_dict'][s] for s in speaker_code]],["line","speaker_code","speaker"])
+            df = make_df([lines,speaker_code,[reverse_speaker_code_dict[s] for s in speaker_code]],["line","speaker_code","speaker"])
             self.predictions.append(df)
         return data
 
     def find_nearest_match(self, features, matrix):
         features = np.asarray(features)
-        distances = [euclidean(u, features) for u in matrix]
+        distances = [self.euclidean(u, features) for u in matrix]
         nearest_match = distances.index(min(distances))
         return nearest_match, min(distances)
+
+    def euclidean(self, v1, v2):
+        return np.sqrt(np.sum(np.square(np.subtract(v1,v2))))
