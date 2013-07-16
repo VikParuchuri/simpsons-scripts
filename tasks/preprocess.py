@@ -21,6 +21,48 @@ log = logging.getLogger(__name__)
 
 PUNCTUATION = ["]",".","!","?"]
 
+CHARACTER_REPLACEMENT = {
+    'H:' : "Homer:",
+    'M:' : "Marge:",
+    "L:" : "Lisa:",
+    "B:" : "Bart:",
+    "G:" : "Grampa:",
+    "Abe:" : "Grampa:",
+    "Principal Skinner:" : "Skinner:",
+    "Ms. K:" : "Ms.K"
+}
+
+CHARACTERS = [
+    u'Burns',
+    u'Lenny',
+    u'Skinner',
+    u'Martin',
+    u'Quimby',
+    u'Barney',
+    u'Apu',
+    u'Kent',
+    u'Grampa',
+    u'Maggie',
+    u'Troy',
+    u'Ned',
+    u'Otto',
+    u'Patty',
+    u'Lisa',
+    u'Selma',
+    u'Krusty',
+    u'Sideshow Bob',
+    u'Bart',
+    u'Smithers',
+    u'Marge',
+    u'Wiggum',
+    u'Moe',
+    u'Homer',
+    u'Hutz',
+    u'Ms.K',
+    u'Nelson',
+    u'Milhouse'
+]
+
 def make_df(datalist, labels, name_prefix=""):
     df = pd.DataFrame(datalist).T
     if name_prefix!="":
@@ -77,6 +119,9 @@ class CleanupScriptText(Task):
         """
         self.data = self.predict(data)
 
+    def check_for_line_split(self, line):
+        return line.split(":")[0] in CHARACTERS
+
     def predict(self, data, **kwargs):
         """
         Used in the predict phase, after training.  Override
@@ -88,18 +133,26 @@ class CleanupScriptText(Task):
             voice_lines = []
             current_line = ""
             for (i,line) in enumerate(script_lines):
+                current_line = current_line.strip()
                 line = line.strip()
+                for k in CHARACTER_REPLACEMENT:
+                    line = re.sub(k,CHARACTER_REPLACEMENT[k],line)
                 if line.startswith("[") and line.endswith("]"):
+                    continue
+                if line.startswith("-"):
                     continue
                 voice_line = re.search('\w+:',line)
                 if voice_line is not None:
-                    voice_lines.append(current_line)
+                    if self.check_for_line_split(current_line):
+                        voice_lines.append(current_line)
                     current_line = line
-                elif len(line)==0 and len(current_line)>0:
-                    voice_lines.append(current_line)
+                elif (len(line)==0 or line.startswith("-")) and len(current_line)>0:
+                    if self.check_for_line_split(current_line):
+                        voice_lines.append(current_line)
                     current_line = ""
+                    voice_lines.append(" ")
                 elif len(current_line)>0:
-                    current_line+=line
+                    current_line+=" " + line
             voice_scripts.append("\n".join([l for l in voice_lines if len(l)>0 and "{" not in l and "=" not in l]))
 
         data['voice_script'] = voice_scripts
