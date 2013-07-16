@@ -17,6 +17,7 @@ from percept.conf.base import settings
 import os
 from percept.tasks.train import Train
 from sklearn.ensemble import RandomForestRegressor
+import pickle
 
 import logging
 log = logging.getLogger(__name__)
@@ -42,7 +43,7 @@ class SpellCorrector(object):
     punctuation = [".", "!", "?", ","]
 
     def __init__(self):
-        self.NWORDS = self.train(self.words(file('big.txt').read()))
+        self.NWORDS = self.train(self.words(file(os.path.join(settings.PROJECT_PATH,'data/big.txt')).read()))
 
     def words(self, text):
         return re.findall('[a-z]+', text.lower())
@@ -172,8 +173,6 @@ class Vectorizer(object):
 
 class FeatureExtractor(Task):
     data = Complex()
-    lines = List()
-    speakers = List()
     row_data = List()
     speaker_code_dict = Dict()
     speaker_codes = List()
@@ -199,7 +198,11 @@ class FeatureExtractor(Task):
         Used in the predict phase, after training.  Override
         """
         scriptfile = kwargs.get('scriptfile')
-        for s in scriptfile:
+        script_data = pickle.load(open(scriptfile))
+        script = script_data.tasks[2].voice_lines.value
+        speakers = []
+        lines = []
+        for s in script:
             for (i,l) in enumerate(s):
                 if i>0:
                     previous_line = s[i-1]['line']
@@ -219,8 +222,8 @@ class FeatureExtractor(Task):
                     next_line = ""
                 current_line = s[i]['line']
                 current_speaker = s[i]['speaker']
-                self.lines.append(current_line)
-                self.speakers.append(current_speaker)
+                lines.append(current_line)
+                speakers.append(current_speaker)
                 row_data = {
                     'previous_line' : previous_line,
                     'previous_speaker' : previous_speaker,
@@ -230,12 +233,11 @@ class FeatureExtractor(Task):
                     'two_back_speaker' : two_back_speaker
                 }
                 self.row_data.append(row_data)
-
-        self.speaker_code_dict = {k:i for (k,i) in enumerate(list(set(self.speakers)))}
-        self.speaker_codes = [self.speaker_code_dict[s] for s in self.speakers]
+        self.speaker_code_dict = {k:i for (i,k) in enumerate(list(set(speakers)))}
+        self.speaker_codes = [self.speaker_code_dict[s] for s in speakers]
         self.max_features = math.floor(MAX_FEATURES)/3
         self.vectorizer = Vectorizer()
-        self.vectorizer.fit(self.lines, self.speaker_codes, self.max_features)
+        self.vectorizer.fit(lines, self.speaker_codes, self.max_features)
         prev_features = self.vectorizer.batch_get_features([rd['previous_line'] for rd in self.row_data])
         cur_features = self.vectorizer.batch_get_features([rd['current_line'] for rd in self.row_data])
         next_features = self.vectorizer.batch_get_features([rd['next_line'] for rd in self.row_data])
@@ -246,7 +248,7 @@ class FeatureExtractor(Task):
             'vectorizer' : self.vectorizer,
             'speaker_code_dict' : self.speaker_code_dict,
             'train_frame' : train_frame,
-            'speakers' : make_df([self.speakers,self.speaker_codes, self.lines], ["speaker", "speaker_code", "line"]),
+            'speakers' : make_df([speakers,self.speaker_codes, lines], ["speaker", "speaker_code", "line"]),
             'data' : data,
         }
         return data
@@ -266,11 +268,14 @@ class RandomForestTrain(Train):
 
 class KNNRF(Task):
     data = Complex()
+    predictions = Complex()
 
     data_format = SimpsonsFormats.dataframe
 
     category = RegistryCategories.preprocessors
     namespace = get_namespace(__module__)
+
+    args = {'algo' : RandomForestTrain}
 
     help_text = "Cleanup simpsons scripts."
 
@@ -284,7 +289,11 @@ class KNNRF(Task):
         """
         Used in the predict phase, after training.  Override
         """
-        prediction_frames = []
+        alg = kwargs.get('algo')
+        train_data = data['train_frame'][[l for l in data['train_frame'].columns if l!="current_speaker"]]
+        target = data['train_frame']['current_speaker']
+        alg.train(train_data,target, **alg.args)
+
         test_data = data['data']
         match_data = data['train_frame'].iloc[MAX_FEATURES:(MAX_FEATURES*2+1)]
         for script in test_data['voice_script']:
@@ -319,8 +328,10 @@ class KNNRF(Task):
                 if distance<DISTANCE_MIN:
                     speaker_code[i] = data['train_frame']['speaker_code'][nearest_match]
                     continue
-
-
+                speaker_code[i] = alg.predict(train_frame)[0]
+            df = make_df([lines,speaker_code,[data['speaker_code_dict'][s] for s in speaker_code]],["line","speaker_code","speaker"])
+            self.predictions.append(df)
+        return data
 
     def find_nearest_match(self, features, matrix):
         distances = [euclidean(u, features) for u in matrix]
