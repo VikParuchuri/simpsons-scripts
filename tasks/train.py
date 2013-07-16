@@ -299,16 +299,17 @@ class KNNRF(Task):
 
         vec_length = math.floor(MAX_FEATURES/3)
 
-        alg = kwargs.get('algo')
+        algo = kwargs.get('algo')
+        alg = algo()
         train_data = data['train_frame'].iloc[:,:-1]
         target = data['train_frame']['current_speaker']
-        alg.train(train_data,target, **alg.args)
+        alg.train(train_data,target, **algo.args)
 
         test_data = data['data']
         match_data = data['current_features']
         for script in test_data['voice_script']:
             lines = script.split("\n")
-            speaker_code = [-1 for i in xrange(0,lines)]
+            speaker_code = [-1 for i in xrange(0,len(lines))]
             for (i,line) in enumerate(lines):
                 if i>0:
                     previous_line = lines[i-1]
@@ -332,7 +333,7 @@ class KNNRF(Task):
                 next_features = data['vectorizer'].get_features(next_line)
 
                 meta_features = make_df([[two_back_speaker], [previous_speaker]],["two_back_speaker", "previous_speaker"])
-                train_frame = pd.concat([prev_features,cur_features,next_features,meta_features],axis=1)
+                train_frame = pd.concat([pd.DataFrame(prev_features),pd.DataFrame(cur_features),pd.DataFrame(next_features),meta_features],axis=1)
 
                 nearest_match, distance = self.find_nearest_match(cur_features,match_data)
                 if distance<DISTANCE_MIN:
@@ -344,6 +345,7 @@ class KNNRF(Task):
         return data
 
     def find_nearest_match(self, features, matrix):
+        features = np.asarray(features)
         distances = [euclidean(u, features) for u in matrix]
         nearest_match = distances.index(min(distances))
         return nearest_match, min(distances)
