@@ -56,15 +56,6 @@ CHARACTERS = [
     u'Milhouse'
 ]
 
-def make_df(datalist, labels, name_prefix=""):
-    df = pd.DataFrame(datalist).T
-    if name_prefix!="":
-        labels = [name_prefix + "_" + l for l in labels]
-    labels = [l.replace(" ", "_").lower() for l in labels]
-    df.columns = labels
-    df.index = range(df.shape[0])
-    return df
-
 class CleanupScriptList(Task):
     data = Complex()
 
@@ -231,9 +222,12 @@ class CleanupTranscriptText(CleanupScriptText):
             script_lines = data['script'][i].split('\n')
             lines = []
             for line in script_lines:
-                line = re.sub("-","",line)
+                line = line.replace("-","\n")
+                line = line.replace("\\","")
                 line = line.strip()
                 lines.append(line)
+            lines = ("\n".join(lines)).split("\n")
+            lines = [l.strip() for l in lines if len(l)>1]
             voice_scripts.append("\n".join(lines))
-        data['voice_scripts'] = voice_scripts
+        data['voice_script'] = voice_scripts
         return data

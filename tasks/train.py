@@ -3,17 +3,32 @@ from itertools import chain
 from sklearn.feature_extraction.text import CountVectorizer
 import numpy as np
 import pandas as pd
-from utils import get_message_replies, MessageReply, get_submission_reply_pairs, read_raw_data_from_cache, write_data_to_cache
 from scipy.spatial.distance import euclidean
 from fisher import pvalue
-import random
-import settings
 import re
 import collections
 from nltk.stem.porter import PorterStemmer
 import math
+from percept.tasks.base import Task
+from percept.fields.base import Complex, List, Dict, Float
+from inputs.inputs import SimpsonsFormats
+from percept.utils.models import RegistryCategories, get_namespace
+from percept.conf.base import settings
+import os
+
+import logging
+log = logging.getLogger(__name__)
 
 MAX_FEATURES = 100
+
+def make_df(datalist, labels, name_prefix=""):
+    df = pd.DataFrame(datalist).T
+    if name_prefix!="":
+        labels = [name_prefix + "_" + l for l in labels]
+    labels = [l.replace(" ", "_").lower() for l in labels]
+    df.columns = labels
+    df.index = range(df.shape[0])
+    return df
 
 class SpellCorrector(object):
     """
@@ -151,6 +166,111 @@ class Vectorizer(object):
         else:
             text = text + new_text
         return (self.vectorizer.transform(text).todense())
+
+class FeatureExtractor(Task):
+    data = Complex()
+    lines = List()
+    speakers = List()
+    row_data = List()
+    speaker_code_dict = Dict()
+    speaker_codes = List()
+    vectorizer = Complex()
+
+    data_format = SimpsonsFormats.dataframe
+
+    category = RegistryCategories.preprocessors
+    namespace = get_namespace(__module__)
+
+    help_text = "Cleanup simpsons scripts."
+
+    args = {'scriptfile' : os.path.abspath(os.path.join(settings.DATA_PATH, "script_tasks"))}
+
+    def train(self, data, target, **kwargs):
+        """
+        Used in the training phase.  Override.
+        """
+        self.data = self.predict(data, **kwargs)
+
+    def predict(self, data, **kwargs):
+        """
+        Used in the predict phase, after training.  Override
+        """
+        scriptfile = kwargs.get('scriptfile')
+        for s in scriptfile:
+            for (i,l) in enumerate(s):
+                if i>0:
+                    previous_line = s[i-1]['line']
+                    previous_speaker = s[i-1]['speaker']
+                else:
+                    previous_line = ""
+                    previous_speaker = ""
+
+                if i>1:
+                    two_back_speaker = s[i-2]['speaker']
+                else:
+                    two_back_speaker = ""
+
+                if len(s)>i+1:
+                    next_line = s[i+1]['line']
+                else:
+                    next_line = ""
+                current_line = s[i]['line']
+                current_speaker = s[i]['speaker']
+                self.lines.append(current_line)
+                self.speakers.append(current_speaker)
+                row_data = {
+                    'previous_line' : previous_line,
+                    'previous_speaker' : previous_speaker,
+                    'next_line' : next_line,
+                    'current_line' : current_line,
+                    'current_speaker' : current_speaker,
+                    'two_back_speaker' : two_back_speaker
+                }
+                self.row_data.append(row_data)
+
+        self.speaker_code_dict = {k:i for (k,i) in enumerate(list(set(self.speakers)))}
+        self.speaker_codes = [self.speaker_code_dict[s] for s in self.speakers]
+        self.max_features = math.floor(MAX_FEATURES)/3
+        self.vectorizer = Vectorizer()
+        self.vectorizer.fit(self.lines, self.speaker_codes, self.max_features)
+        prev_features = self.vectorizer.batch_get_features([rd['previous_line'] for rd in self.row_data])
+        cur_features = self.vectorizer.batch_get_features([rd['current_line'] for rd in self.row_data])
+        next_features = self.vectorizer.batch_get_features([rd['next_line'] for rd in self.row_data])
+
+        meta_features = make_df([[self.speaker_code_dict[s['two_back_speaker']] for s in self.row_data], [self.speaker_code_dict[s['previous_speaker']] for s in self.row_data], self.speaker_codes],["two_back_speaker", "previous_speaker", "current_speaker"])
+        train_frame = pd.concat([prev_features,cur_features,next_features,meta_features],axis=1)
+        data = {
+            'vectorizer' : self.vectorizer,
+            'speaker_code_dict' : self.speaker_code_dict,
+            'train_frame' : train_frame,
+            'speakers' : make_df([self.speakers,self.speaker_codes, self.lines], ["speaker", "speaker_code", "line"]),
+            'data' : data,
+        }
+        return data
+
+class KNNRF(Task):
+    data = Complex()
+
+    data_format = SimpsonsFormats.dataframe
+
+    category = RegistryCategories.preprocessors
+    namespace = get_namespace(__module__)
+
+    help_text = "Cleanup simpsons scripts."
+
+    def train(self, data, target, **kwargs):
+        """
+        Used in the training phase.  Override.
+        """
+        self.data = self.predict(data, **kwargs)
+
+    def predict(self, data, **kwargs):
+        """
+        Used in the predict phase, after training.  Override
+        """
+        test_data = data['data']
+
+
 
 class KNNCommentMatcher(object):
     def __init__(self, train_data):
