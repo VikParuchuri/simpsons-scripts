@@ -158,3 +158,40 @@ class CleanupScriptText(Task):
         data['voice_script'] = voice_scripts
 
         return data
+
+class CleanupTranscriptList(CleanupScriptList):
+    help_text = "Cleanup simpsons transcripts."
+
+    def predict(self, data, **kwargs):
+        """
+        Used in the predict phase, after training.  Override
+        """
+
+        script_removal_values = [""]
+        for r in script_removal_values:
+            data = data[data["script"]!=r]
+        episode_names = []
+        for i in data['url']:
+            match = re.search("episode=\w+",i)
+            if match is None:
+                episode_names.append("s00e00")
+                continue
+            episode_names.append(match.group(0).split("=")[1])
+
+        data['episode_name'] = episode_names
+        data['season'] = [int(i.split("e")[0].replace("s","")) for i in episode_names]
+        data['episode_number'] = [int(i.split("e")[1]) for i in episode_names]
+
+        data.index = range(data.shape[0])
+        return data
+
+class CleanupTranscriptText(CleanupScriptText):
+
+    help_text = "Cleanup simpsons transcripts."
+
+    def predict(self, data, **kwargs):
+        """
+        Used in the predict phase, after training.  Override
+        """
+        return data
+
