@@ -242,8 +242,9 @@ class FeatureExtractor(Task):
         cur_features = self.vectorizer.batch_get_features([rd['current_line'] for rd in self.row_data])
         next_features = self.vectorizer.batch_get_features([rd['next_line'] for rd in self.row_data])
 
+        self.speaker_code_dict.update({'' : -1})
         meta_features = make_df([[self.speaker_code_dict[s['two_back_speaker']] for s in self.row_data], [self.speaker_code_dict[s['previous_speaker']] for s in self.row_data], self.speaker_codes],["two_back_speaker", "previous_speaker", "current_speaker"])
-        train_frame = pd.concat([prev_features,cur_features,next_features,meta_features],axis=1)
+        train_frame = pd.concat([pd.DataFrame(prev_features),pd.DataFrame(cur_features),pd.DataFrame(next_features),meta_features],axis=1)
         data = {
             'vectorizer' : self.vectorizer,
             'speaker_code_dict' : self.speaker_code_dict,
@@ -290,7 +291,7 @@ class KNNRF(Task):
         Used in the predict phase, after training.  Override
         """
         alg = kwargs.get('algo')
-        train_data = data['train_frame'][[l for l in data['train_frame'].columns if l!="current_speaker"]]
+        train_data = data['train_frame'][[l for l in list(data['train_frame'].columns) if l!="current_speaker"]]
         target = data['train_frame']['current_speaker']
         alg.train(train_data,target, **alg.args)
 
