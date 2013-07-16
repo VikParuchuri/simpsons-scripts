@@ -18,6 +18,7 @@ import os
 from percept.tasks.train import Train
 from sklearn.ensemble import RandomForestRegressor
 import pickle
+import random
 
 import logging
 log = logging.getLogger(__name__)
@@ -34,6 +35,9 @@ def make_df(datalist, labels, name_prefix=""):
     df.index = range(df.shape[0])
     return df
 
+def return_one():
+    return 1
+
 class SpellCorrector(object):
     """
     Taken and slightly adapted from peter norvig's post at http://norvig.com/spell-correct.html
@@ -49,7 +53,7 @@ class SpellCorrector(object):
         return re.findall('[a-z]+', text.lower())
 
     def train(self, features):
-        model = collections.defaultdict(lambda: 1)
+        model = collections.defaultdict(return_one)
         for f in features:
             model[f] += 1
         return model
@@ -245,12 +249,17 @@ class FeatureExtractor(Task):
         self.speaker_code_dict.update({'' : -1})
         meta_features = make_df([[self.speaker_code_dict[s['two_back_speaker']] for s in self.row_data], [self.speaker_code_dict[s['previous_speaker']] for s in self.row_data], self.speaker_codes],["two_back_speaker", "previous_speaker", "current_speaker"])
         train_frame = pd.concat([pd.DataFrame(prev_features),pd.DataFrame(cur_features),pd.DataFrame(next_features),meta_features],axis=1)
+        train_frame.index = range(train_frame.shape[0])
+        train_frame = train_frame.T.drop_duplicates().T
+        cols = [i for i in xrange(0,train_frame.shape[1]-3)] + ["two_back_speaker", "previous_speaker", "current_speaker"]
+        train_frame.columns = cols
         data = {
             'vectorizer' : self.vectorizer,
             'speaker_code_dict' : self.speaker_code_dict,
             'train_frame' : train_frame,
             'speakers' : make_df([speakers,self.speaker_codes, lines], ["speaker", "speaker_code", "line"]),
             'data' : data,
+            'current_features' : cur_features,
         }
         return data
 
@@ -290,13 +299,16 @@ class KNNRF(Task):
         """
         Used in the predict phase, after training.  Override
         """
+
+        vec_length = math.floor(MAX_FEATURES/3)
+
         alg = kwargs.get('algo')
         train_data = data['train_frame'][[l for l in list(data['train_frame'].columns) if l!="current_speaker"]]
         target = data['train_frame']['current_speaker']
         alg.train(train_data,target, **alg.args)
 
         test_data = data['data']
-        match_data = data['train_frame'].iloc[MAX_FEATURES:(MAX_FEATURES*2+1)]
+        match_data = data['current_features']
         for script in test_data['voice_script']:
             lines = script.split("\n")
             speaker_code = [-1 for i in xrange(0,lines)]
@@ -338,26 +350,3 @@ class KNNRF(Task):
         distances = [euclidean(u, features) for u in matrix]
         nearest_match = distances.index(min(distances))
         return nearest_match, min(distances)
-
-class KNNCommentMatcher(object):
-    def __init__(self, train_data):
-        self.train = train_data
-        self.max_features = math.floor(MAX_FEATURES)/3
-        self.vectorizer = Vectorizer()
-        self.lines = [t['line'] for t in self.train]
-        self.speaker_codes = [t['speaker_code'] for t in self.train]
-
-    def fit(self):
-        self.vectorizer.fit(self.lines, self.speaker_codes, self.max_features)
-        self.train_mat = self.vectorizer.batch_get_features(self.lines)
-
-    def find_nearest_match(self, text):
-        test_vec = np.asarray(self.vectorizer.get_features(text))
-        distances = [euclidean(u, test_vec) for u in self.train_mat]
-        nearest_match = distances.index(min(distances))
-        return nearest_match, min(distances)
-
-    def find_knn_speaker(self, text):
-        nearest_match, distance = self.find_nearest_match(text)
-        raw_data = self.train[nearest_match]
-        return raw_data, nearest_match, distance
