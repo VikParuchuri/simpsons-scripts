@@ -5,15 +5,8 @@ from percept.fields.base import Complex, List, Dict, Float
 from inputs.inputs import SimpsonsFormats
 from percept.utils.models import RegistryCategories, get_namespace
 import logging
-import numpy as np
-import calendar
 import pandas as pd
-from sklearn.ensemble import RandomForestRegressor
-import math
-import random
-from itertools import chain
 from percept.tests.framework import Tester
-import os
 from percept.conf.base import settings
 import re
 
@@ -236,8 +229,11 @@ class CleanupTranscriptText(CleanupScriptText):
         voice_scripts = []
         for i in xrange(0,data.shape[0]):
             script_lines = data['script'][i].split('\n')
+            lines = []
             for line in script_lines:
                 line = re.sub("-","",line)
                 line = line.strip()
+                lines.append(line)
+            voice_scripts.append("\n".join(lines))
+        data['voice_scripts'] = voice_scripts
         return data
-
