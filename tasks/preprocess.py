@@ -312,13 +312,16 @@ def check_if_character(character):
     return character in all_characters
 
 def find_replacement(character):
-    for k in CHARACTER_REPLACEMENT:
-        if k==character:
-            character = CHARACTER_REPLACEMENT[k]
     for k in CHARACTERS:
         if character in CHARACTERS[k]:
             return k
     return "Tertiary"
+
+def cleanup_name(character):
+    for k in CHARACTER_REPLACEMENT:
+        if k==character:
+            character = CHARACTER_REPLACEMENT[k]
+    return character
 
 class CleanupScriptText(Task):
     data = Complex()
@@ -417,6 +420,7 @@ class ReformatScriptText(Task):
                     line_split = line.split(":")
                     if do_replace:
                         line_split[0] = find_replacement(line_split[0].strip())
+                    line_split[0] = cleanup_name(line_split[0].strip())
                     segment.append({'speaker' : line_split[0],
                                     'line' : ":".join(line_split[1:]).strip()})
                 else:
