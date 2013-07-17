@@ -12,10 +12,256 @@ import re
 from sklearn.cluster import KMeans
 import os
 import json
+from itertools import chain
 
 log = logging.getLogger(__name__)
 
 PUNCTUATION = ["]",".","!","?"]
+
+CHARACTERS = {
+    'Tertiary': ['',
+      'Willy',
+      'Congressman',
+      'Ham',
+      'Mr. Burns',
+      'Make-Up Man',
+      'Alligator',
+      'Sherri',
+      'Frog 1',
+      'Frog 2',
+      'Auctioneer',
+      'Theme',
+      "Lenny'S Voice",
+      'Bart &Milhouse',
+      'Pele',
+      'Pilot One',
+      'Fisherman 2',
+      'Elves',
+      'Fisherman 1',
+      'Woman',
+      'Mrs. Prince',
+      'Frog 3',
+      'Hutz',
+      'Mrs. Krebappel',
+      'Lizzie',
+      'Mendoza',
+      ',',
+      "Homer'S Voice",
+      'Mcclure',
+      'Fan',
+      'Snake',
+      'Silverman',
+      'Ms.K',
+      'Prostitute',
+      'Scary Devil',
+      'Kids',
+      'Bart & Milhouse',
+      'H',
+      'Tv Presenter',
+      'Mcbain',
+      'Billy',
+      'Inspector & Woman',
+      'Mother',
+      'Mr. Largo',
+      'Kearney',
+      'Rev. Lovejoy',
+      'Louie',
+      'Executioner',
+      'Grim Reaper',
+      'Crowd',
+      'Meek Voice',
+      'Cohen',
+      'Gallagher',
+      'Burns Robot',
+      'Mccartney',
+      'Jasper',
+      'T-Shirt Vendor',
+      'Tv Voiceover',
+      'Kid',
+      'Gummy Joe',
+      'George',
+      'Hans Moleman',
+      'Mrs. Glick',
+      'Hibbert',
+      'Men',
+      'Family & Apu',
+      'Announcer',
+      'Guitarist',
+      'Dr Hibbert',
+      'Scully',
+      'Ringo',
+      'Bart & Barney',
+      'Marvin',
+      'Dr. Joyce Brothers',
+      'Email',
+      'Arsonist',
+      'Cameraman',
+      'Terri',
+      'Ramone #4',
+      'Clerk',
+      'Bart & Lisa',
+      'Worker',
+      'Ramone #1',
+      'Ramone #2',
+      'Ramone #3',
+      'Mrs. Lovejoy',
+      'Frink',
+      'Game',
+      'Mulder',
+      'Technician',
+      'Librarian',
+      'Uter',
+      'Class',
+      'Robber',
+      'Meyer',
+      'Boy On Tv',
+      'Boy',
+      'Scotsman',
+      'Mr. Rogers',
+      'Poochie',
+      'Adviser',
+      "Burns' Grandfather",
+      'Customers',
+      'Sideshow Mel',
+      'S',
+      'Maude',
+      'Bailey',
+      'Spanish Bee',
+      'Inspector',
+      'Shutton',
+      'Maggie',
+      'Dr. Nick',
+      'Searing Pain!?',
+      'Clinton',
+      'Kang',
+      'Super Friends',
+      'Alien',
+      'Roy',
+      'Comedian',
+      'Radio Dj',
+      'Lawyer',
+      'Todd',
+      'Salesman',
+      'Nixon',
+      'Pilot Two',
+      'Nooooo!!!',
+      'Doctor',
+      'Man 1',
+      'Vulture',
+      'Man 2',
+      'Robots',
+      'Dr. Hibbert',
+      'Lou',
+      'Tv Repair Man',
+      'Lovejoy',
+      'Tom Savini',
+      'Dr Nick',
+      'Conductor',
+      'Mexican Commentator',
+      'Wendell',
+      'Selma',
+      'Cashier',
+      '.',
+      'Moleman',
+      'Tv Announcer',
+      'Hans',
+      'Agnes',
+      'Nimoy',
+      'Tannoy',
+      'Bumblebee Guy',
+      'Singer',
+      'Carl',
+      'Ralph',
+      'Motel Clerk',
+      'Don Homer',
+      'Flanders',
+      'Voice',
+      'Agnes Skinner',
+      'Secretary',
+      'Bellamy',
+      'Shop Assistant',
+      'Scratchy',
+      'Darwin',
+      'Family',
+      'Demon',
+      'General',
+      'Writers',
+      'Guests',
+      'Harrison',
+      'C.E.O.',
+      'Speaker',
+      'Edna Krebappel',
+      'Blackbeard',
+      'Abe Simpson',
+      'Hitler',
+      'Reporter',
+      'Lionel Hutz',
+      'Jimbo',
+      'Abe',
+      'Floor',
+      'Tv',
+      'God',
+      'Father',
+      'Oakley',
+      'Bush',
+      'Drummer',
+      'Teenager',
+      'Arnie',
+      'Jingle',
+      'Itchy',
+      'Pianist',
+      'Eagle',
+      'Captain Mccallister',
+      'Narrator',
+      'Tester',
+      'Advisor 3',
+      'Advisor 2',
+      'Santas',
+      'Guard',
+      'Bear',
+      'Toucan',
+      'Elf #2',
+      'Elf #1',
+      'Teacher',
+      'Photographer',
+      'Tattoo Guy',
+      'Scott Christian',
+      'Employees',
+      'Doug',
+      'Arnold',
+      'Report Card',
+      'Guards',
+      'Hot Dog Vendor',
+      'Cletus',
+      'Dr. Wolfe',
+      'Miss Hoover',
+      'Abraham',
+      'D-O-G.',
+      'Strikers',
+      'Gates',
+      'All',
+      'Everyone',
+      'Carter',
+      'Reverend Lovejoy',
+      'Alf',
+      'Lewis',
+      'Executive',
+      'Hobo',
+      'Indian Man',
+      'Player',
+      'Manager',
+      'Homer Slaves',
+      'Girl',
+      'Sarcastic Clerk',
+      'Smithers Robot',
+      "Homer'S Brain"],
+     'Marge': ['Marge'],
+     'Homer': ['Homer'],
+     'Burns': ['Burns'],
+     'Secondary': ['Kent', 'Moe', 'Ned', 'Smithers', 'Apu', 'Skinner', 'Milhouse'],
+     'Lisa': ['Lisa'],
+     'Bart': ['Bart'],
+}
 
 CHARACTER_REPLACEMENT = {
     'H:' : "Homer:",
@@ -27,57 +273,6 @@ CHARACTER_REPLACEMENT = {
     "Principal Skinner:" : "Skinner:",
     "Ms. K:" : "Ms.K",
 }
-
-SECONDARY_CHARACTERS = [
-    u'Kent',
-    u'Quimby',
-    u'Troy',
-    u'Selma',
-    u'Patty',
-    u'Hutz',
-    u'Grampa',
-    u'Krusty',
-    u'Sideshow Bob',
-    u'Wiggum',
-]
-
-HOMER_FRIENDS = [
-    u'Lenny',
-    u'Moe',
-    u'Barney',
-    u'Ned',
-    u'Apu',
-]
-
-KIDS = [
-    u'Nelson',
-    u'Martin',
-    u'Milhouse',
-    u'Maggie',
-]
-
-SCHOOL = [
-    u'Skinner',
-    u'Ms.K',
-    u'Otto',
-]
-
-BURNS = [
-    u'Burns',
-    u'Smithers',
-]
-
-CHARACTERS = [
-    u'Lisa',
-    u'Bart',
-    u'Marge',
-    u'Homer',
-    u'Secondary',
-    u'Kid',
-    u'School',
-    u'Burns',
-    u'HomerFriend',
-]
 
 class CleanupScriptList(Task):
     data = Complex()
@@ -110,6 +305,16 @@ class CleanupScriptList(Task):
         data.index = range(data.shape[0])
         return data
 
+def check_if_character(character):
+    all_characters = list(chain.from_iterable([CHARACTERS[k] for k in CHARACTERS]))
+    return character in all_characters
+
+def find_replacement(character):
+    for k in CHARACTERS:
+        if character in CHARACTERS[k]:
+            return k
+    return "Tertiary"
+
 class CleanupScriptText(Task):
     data = Complex()
 
@@ -127,7 +332,7 @@ class CleanupScriptText(Task):
         self.data = self.predict(data)
 
     def check_for_line_split(self, line):
-        return line.split(":")[0] in CHARACTERS + SECONDARY_CHARACTERS + SCHOOL + HOMER_FRIENDS + BURNS + KIDS
+        return check_if_character(line.split(":")[0])
 
     def predict(self, data, **kwargs):
         """
@@ -194,37 +399,25 @@ class ReformatScriptText(Task):
         voice_scripts = list(data['voice_script'])
         scriptfile = kwargs['scriptfile']
         json_scripts = json.load(open(scriptfile))
-        for s in json_scripts:
-            voice_scripts+=s['script']
+        voice_scripts+=[s['script'] for s in json_scripts]
         script_segments = []
-        for script in data['voice_script']:
+        for script in voice_scripts:
             script = script.replace("\"","")
             lines = script.split("\n")
             segment = []
             for line in lines:
                 if line.strip()!="":
                     line = line.encode('ascii','ignore')
-                    """
-                    for k in CHARACTER_REPLACEMENT:
-                        line = re.sub(k,CHARACTER_REPLACEMENT[k],line)
-                    for k in SECONDARY_CHARACTERS:
-                        line = re.sub(k+":","Secondary:",line)
-                    for k in KIDS:
-                        line = re.sub(k+":","Kid:",line)
-                    for k in SCHOOL:
-                        line = re.sub(k+":","School:",line)
-                    for k in BURNS:
-                        line = re.sub(k+":","Burns:",line)
-                    for k in HOMER_FRIENDS:
-                        line = re.sub(k+":","HomerFriend:",line)
-                    """
                     line_split = line.split(":")
-                    segment.append({'speaker' : line_split[0].strip(),
+                    line_split[0] = find_replacement(line_split[0].strip())
+                    segment.append({'speaker' : line_split[0],
                                     'line' : ":".join(line_split[1:]).strip()})
                 else:
                     if len(segment)>0:
                         script_segments.append(segment)
                         segment = []
+            if len(segment)>0:
+                script_segments.append(segment)
         self.voice_lines = script_segments
 
 class ClusterScriptText(Task):
@@ -256,15 +449,10 @@ class ClusterScriptText(Task):
 
         vec = Vectorizer()
 
-        script_segments = []
-        for script in data['voice_script']:
-            lines = script.split("\n")
-            for line in lines:
-                if line.strip()!="":
-                    line = line.encode('ascii','ignore')
-                    line_split = line.split(":")
-                    script_segments.append({'speaker' : line_split[0].strip(),
-                                    'line' : ":".join(line_split[1:]).strip()})
+        reformatter = ReformatScriptText()
+        reformatter.train(data, "", **reformatter.args)
+
+        script_segments = list(chain.from_iterable(reformatter.voice_lines))
         text = [s['line'] for s in script_segments]
         speaker = [s['speaker'] for s in script_segments]
         unique_speakers = list(set(speaker))
