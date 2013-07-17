@@ -364,23 +364,22 @@ class KNNRF(Task):
                 #meta_features = make_df([[two_back_speaker]],["two_back_speaker"])
                 train_frame = pd.concat([pd.DataFrame(prev_features),pd.DataFrame(cur_features),pd.DataFrame(next_features), meta_features],axis=1)
 
-                #nearest_match, distance = self.find_nearest_match(cur_features,match_data)
-                #if distance<DISTANCE_MIN:
-                #    speaker_code[i] = data['speakers']['speaker_code'][nearest_match]
-                #    continue
-
-
                 speaker_code[i] = alg.predict(train_frame)[0]
 
                 nearest_match, distance = self.find_nearest_match(cur_features, speaker_features)
                 if distance<DISTANCE_MIN:
-                    speaker_code[i] = data['speaker_code_dict'][speaker_codes[nearest_match]]
+                    speaker_code[i] = speaker_codes[nearest_match]
                     continue
 
                 for k in CHARACTERS:
                     for c in CHARACTERS[k]:
                         if c in previous_line:
                             speaker_code[i] = data['speaker_code_dict'][k]
+
+                nearest_match, distance = self.find_nearest_match(cur_features,match_data)
+                if distance<DISTANCE_MIN:
+                    speaker_code[i] = data['speakers']['speaker_code'][nearest_match]
+                    continue
 
             df = make_df([lines,speaker_code,[reverse_speaker_code_dict[round(s)] for s in speaker_code]],["line","speaker_code","speaker"])
             self.predictions.append(df)
@@ -393,4 +392,4 @@ class KNNRF(Task):
         return nearest_match, min(distances)
 
     def euclidean(self, v1, v2):
-        return np.sqrt(np.sum(np.square(np.subtract(v1,v2))))
+        return np.sqrt(((v1-v2)**2).sum())
