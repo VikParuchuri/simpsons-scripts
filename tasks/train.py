@@ -321,8 +321,6 @@ class KNNRF(Task):
         for script in test_data['voice_script']:
             counter+=1
             log.info("On script {0} out of {1}".format(counter,len(test_data['voice_script'])))
-            if counter>5:
-                break
             lines = script.split("\n")
             speaker_code = [-1 for i in xrange(0,len(lines))]
             for (i,line) in enumerate(lines):
