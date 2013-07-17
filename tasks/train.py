@@ -143,12 +143,13 @@ class Vectorizer(object):
         new_scores = [0 if i<=input_score_med else 1 for i in input_scores]
         ind_max_features = math.floor(max_features/max(input_scores))
         all_vocab = []
+        all_cols = [np.asarray(train_mat.getcol(i).todense().transpose())[0] for i in xrange(0,train_mat.shape[1])]
         for s in xrange(0,max(input_scores)):
             sel_inds = [i for i in xrange(0,len(input_scores)) if input_scores[i]==s]
             out_inds = [i for i in xrange(0,len(input_scores)) if input_scores[i]!=s]
             pvalues = []
-            for i in xrange(0,train_mat.shape[1]):
-                lcol = np.asarray(train_mat.getcol(i).todense().transpose())[0]
+            for i in xrange(0,len(all_cols)):
+                lcol = all_cols[i]
                 good_lcol = lcol[sel_inds]
                 bad_lcol = lcol[out_inds]
                 good_lcol_present = len(good_lcol[good_lcol > 0])

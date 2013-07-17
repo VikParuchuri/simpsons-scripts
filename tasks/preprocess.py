@@ -235,6 +235,8 @@ class ClusterScriptText(Task):
     predictions = Complex()
     clusters = List()
     cl = Complex()
+    vec = Complex()
+    vec1 = Complex()
 
     data_format = SimpsonsFormats.dataframe
 
@@ -257,7 +259,7 @@ class ClusterScriptText(Task):
 
         from train import Vectorizer, make_df
 
-        vec = Vectorizer()
+        self.vec = Vectorizer()
 
         reformatter = ReformatScriptText()
         args = reformatter.args
@@ -276,8 +278,8 @@ class ClusterScriptText(Task):
             s_text = "\n".join(list(speaker_frame[speaker_frame['speaker']==i]['text']))
             speaker_list.append(s_text)
 
-        vec.fit(speaker_list, speaker_codes, 200,min_features=2)
-        features = vec.batch_get_features(speaker_list)
+        self.vec.fit(speaker_list, speaker_codes, 200,min_features=2)
+        features = self.vec.batch_get_features(speaker_list)
 
         cl = KMeans()
         self.predictions = cl.fit_predict(features)
@@ -302,11 +304,11 @@ class ClusterScriptText(Task):
         pyplot.legend(loc=8)
         pyplot.savefig('clusters.png')
 
-        vec1 = Vectorizer()
+        self.vec1 = Vectorizer()
         speaker_codes = [speaker_code_dict[k] for k in speaker]
 
-        vec1.fit(text, speaker_codes, 200,min_features=2)
-        features = vec1.batch_get_features(text)
+        self.vec1.fit(text, speaker_codes, 200,min_features=2)
+        features = self.vec1.batch_get_features(text)
 
         pca = PCA(n_components=2, whiten=True).fit(features)
         rf = pca.transform(features)
