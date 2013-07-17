@@ -9,6 +9,7 @@ import pandas as pd
 from percept.tests.framework import Tester
 from percept.conf.base import settings
 import re
+from sklearn.cluster import KMeans
 
 
 log = logging.getLogger(__name__)
@@ -140,6 +141,7 @@ class CleanupScriptText(Task):
             for (i,line) in enumerate(script_lines):
                 current_line = current_line.strip()
                 line = line.strip()
+                """
                 for k in CHARACTER_REPLACEMENT:
                     line = re.sub(k,CHARACTER_REPLACEMENT[k],line)
                 for k in SECONDARY_CHARACTERS:
@@ -152,6 +154,7 @@ class CleanupScriptText(Task):
                     line = re.sub(k+":","Burns:",line)
                 for k in HOMER_FRIENDS:
                     line = re.sub(k+":","HomerFriend:",line)
+                """
                 if line.startswith("[") and line.endswith("]"):
                     continue
                 if line.startswith("-"):
@@ -214,6 +217,60 @@ class ReformatScriptText(Task):
                         script_segments.append(segment)
                         segment = []
         self.voice_lines = script_segments
+
+class ClusterScriptText(Task):
+    data = Complex()
+    clusters = Complex()
+    predictions = Complex()
+
+    data_format = SimpsonsFormats.dataframe
+
+    category = RegistryCategories.preprocessors
+    namespace = get_namespace(__module__)
+
+    help_text = "Cluster simpsons scripts."
+
+    def train(self, data, target, **kwargs):
+        """
+        Used in the training phase.  Override.
+        """
+        self.data = data
+        self.predict(self.data)
+
+    def predict(self, data, **kwargs):
+        """
+        Used in the predict phase, after training.  Override
+        """
+
+        from train import Vectorizer, make_df
+
+        vec = Vectorizer()
+
+        script_segments = []
+        for script in data['voice_script']:
+            lines = script.split("\n")
+            for line in lines:
+                if line.strip()!="":
+                    line = line.encode('ascii','ignore')
+                    line_split = line.split(":")
+                    script_segments.append({'speaker' : line_split[0].strip(),
+                                    'line' : ":".join(line_split[1:]).strip()})
+        text = [s['line'] for s in script_segments]
+        speaker = [s['speaker'] for s in script_segments]
+        unique_speakers = list(set(speaker))
+        speaker_code_dict = {k:i for (i,k) in enumerate(unique_speakers)}
+        speaker_codes = [speaker_code_dict[k] for k in unique_speakers]
+        speaker_list = []
+        speaker_frame = make_df([text,speaker],["text","speaker"])
+        for i in unique_speakers:
+            s_text = "\n".join(list(speaker_frame[speaker_frame['speaker']==i]['text']))
+            speaker_list.append(s_text)
+
+        vec.fit(speaker_list, speaker_codes, 200,min_features=1)
+        features = vec.batch_get_features(speaker_list)
+
+        cl = KMeans()
+        self.predictions = cl.fit_predict(features)
 
 class CleanupTranscriptList(CleanupScriptList):
     help_text = "Cleanup simpsons transcripts."

@@ -22,7 +22,7 @@ import random
 import logging
 log = logging.getLogger(__name__)
 
-MAX_FEATURES = 350
+MAX_FEATURES = 200
 DISTANCE_MIN=1
 RESET_SCENE_EVERY = 1000
 
@@ -89,12 +89,12 @@ class Vectorizer(object):
     def __init__(self):
         self.fit_done = False
 
-    def fit(self, input_text, input_scores, max_features=100):
+    def fit(self, input_text, input_scores, max_features=100, min_features=3):
         self.spell_corrector = SpellCorrector()
         self.stemmer = PorterStemmer()
         new_text = self.batch_generate_new_text(input_text)
         input_text = [input_text[i] + new_text[i] for i in xrange(0,len(input_text))]
-        self.vectorizer1 = CountVectorizer(ngram_range=(1,2), min_df = 3/len(input_text), max_df=.4)
+        self.vectorizer1 = CountVectorizer(ngram_range=(1,2), min_df = min_features/len(input_text), max_df=.4)
         self.vectorizer1.fit(input_text)
         self.vocab = self.get_vocab(input_text, input_scores, max_features)
         self.vectorizer = CountVectorizer(ngram_range=(1,2), vocabulary=self.vocab)
