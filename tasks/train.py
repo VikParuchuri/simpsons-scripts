@@ -24,7 +24,7 @@ log = logging.getLogger(__name__)
 
 MAX_FEATURES = 300
 DISTANCE_MIN=1
-RESET_SCENE_EVERY = 1000
+RESET_SCENE_EVERY = 10
 
 def make_df(datalist, labels, name_prefix=""):
     df = pd.DataFrame(datalist).T
@@ -251,8 +251,7 @@ class FeatureExtractor(Task):
         next_features = self.vectorizer.batch_get_features([rd['next_line'] for rd in self.row_data])
 
         self.speaker_code_dict.update({'' : -1})
-        #meta_features = make_df([[self.speaker_code_dict[s['two_back_speaker']] for s in self.row_data], [self.speaker_code_dict[s['previous_speaker']] for s in self.row_data], self.speaker_codes],["two_back_speaker", "previous_speaker", "current_speaker"])
-        meta_features = make_df([self.speaker_codes],["current_speaker"])
+        meta_features = make_df([[self.speaker_code_dict[s['two_back_speaker']] for s in self.row_data], [self.speaker_code_dict[s['previous_speaker']] for s in self.row_data], self.speaker_codes],["two_back_speaker", "previous_speaker", "current_speaker"])
         train_frame = pd.concat([pd.DataFrame(prev_features),pd.DataFrame(cur_features),pd.DataFrame(next_features),meta_features],axis=1)
         train_frame.index = range(train_frame.shape[0])
         data = {
@@ -321,6 +320,8 @@ class KNNRF(Task):
         for script in test_data['voice_script']:
             counter+=1
             log.info("On script {0} out of {1}".format(counter,len(test_data['voice_script'])))
+            if counter>5:
+                break
             lines = script.split("\n")
             speaker_code = [-1 for i in xrange(0,len(lines))]
             for (i,line) in enumerate(lines):
@@ -346,7 +347,7 @@ class KNNRF(Task):
                 next_features = data['vectorizer'].get_features(next_line)
 
                 meta_features = make_df([[two_back_speaker], [previous_speaker]],["two_back_speaker", "previous_speaker"])
-                train_frame = pd.concat([pd.DataFrame(prev_features),pd.DataFrame(cur_features),pd.DataFrame(next_features)],axis=1)
+                train_frame = pd.concat([pd.DataFrame(prev_features),pd.DataFrame(cur_features),pd.DataFrame(next_features), meta_features],axis=1)
 
                 #nearest_match, distance = self.find_nearest_match(cur_features,match_data)
                 #if distance<DISTANCE_MIN:
