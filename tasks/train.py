@@ -85,31 +85,6 @@ class SpellCorrector(object):
         self.cache.update({word : newword})
         return newword
 
-
-def get_vocab(input_text, input_scores, max_features):
-    vectorizer1 = CountVectorizer(ngram_range=(1,2), min_df = 3/len(input_text), max_df=.4)
-    vectorizer1.fit(input_text)
-    train_mat = vectorizer1.transform(input_text)
-    input_score_med = np.median(input_scores)
-    new_scores = [0 if i<=input_score_med else 1 for i in input_scores]
-    pvalues = []
-    for i in xrange(0,train_mat.shape[1]):
-        lcol = np.asarray(train_mat.getcol(i).todense().transpose())[0]
-        good_lcol = lcol[[n for n in xrange(0,len(new_scores)) if new_scores[n]==1]]
-        bad_lcol = lcol[[n for n in xrange(0,len(new_scores)) if new_scores[n]==0]]
-        good_lcol_present = len(good_lcol[good_lcol > 0])
-        good_lcol_missing = len(good_lcol[good_lcol == 0])
-        bad_lcol_present = len(bad_lcol[bad_lcol > 0])
-        bad_lcol_missing = len(bad_lcol[bad_lcol == 0])
-        pval = pvalue(good_lcol_present, bad_lcol_present, good_lcol_missing, bad_lcol_missing)
-        pvalues.append(pval.two_tail)
-    col_inds = list(xrange(0,train_mat.shape[1]))
-    p_frame = pd.DataFrame(np.array([col_inds, pvalues]).transpose(), columns=["inds", "pvalues"])
-    p_frame = p_frame.sort(['pvalues'], ascending=True)
-    getVar = lambda searchList, ind: [searchList[int(i)] for i in ind]
-    vocab = getVar(vectorizer1.get_feature_names(), p_frame['inds'][:max_features])
-    return vocab
-
 class Vectorizer(object):
     def __init__(self):
         self.fit_done = False
@@ -179,7 +154,7 @@ class Vectorizer(object):
             pvalues.append(pval.two_tail)
         col_inds = list(xrange(0,train_mat.shape[1]))
         p_frame = pd.DataFrame(np.array([col_inds, pvalues]).transpose(), columns=["inds", "pvalues"])
-        p_frame.sort(['pvalues'], ascending=True)
+        p_frame = p_frame.sort(['pvalues'], ascending=True)
         getVar = lambda searchList, ind: [searchList[int(i)] for i in ind]
         vocab = getVar(self.vectorizer1.get_feature_names(), p_frame['inds'][:max_features])
         return vocab
