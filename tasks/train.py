@@ -308,7 +308,10 @@ class KNNRF(Task):
         match_data = data['current_features']
         reverse_speaker_code_dict = {data['speaker_code_dict'][k] : k for k in data['speaker_code_dict']}
         self.predictions = []
+        counter = 0
         for script in test_data['voice_script']:
+            counter+=1
+            log.info("On script {0}".format(counter))
             lines = script.split("\n")
             speaker_code = [-1 for i in xrange(0,len(lines))]
             for (i,line) in enumerate(lines):
