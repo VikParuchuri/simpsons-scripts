@@ -47,6 +47,7 @@ class SpellCorrector(object):
 
     def __init__(self):
         self.NWORDS = self.train(self.words(file(os.path.join(settings.PROJECT_PATH,'data/big.txt')).read()))
+        self.cache = {}
 
     def words(self, text):
         return re.findall('[a-z]+', text.lower())
@@ -71,14 +72,17 @@ class SpellCorrector(object):
     def known(self, words): return set(w for w in words if w in self.NWORDS)
 
     def correct(self, word):
+        if word in self.cache:
+            return self.cache[word]
         suffix = ""
         for p in self.punctuation:
             if word.endswith(p):
                 suffix = p
                 word = word[:-1]
         candidates = self.known([word]) or self.known(self.edits1(word)) or self.known_edits2(word) or [word]
-        word = max(candidates, key=self.NWORDS.get)
-        return word + suffix
+        newword = max(candidates, key=self.NWORDS.get) + suffix
+        self.cache.update({word : newword})
+        return newword
 
 class Vectorizer(object):
     def __init__(self):
