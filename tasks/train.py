@@ -24,7 +24,7 @@ log = logging.getLogger(__name__)
 
 MAX_FEATURES = 300
 DISTANCE_MIN=1
-RESET_SCENE_EVERY = 10
+RESET_SCENE_EVERY = 5
 
 def make_df(datalist, labels, name_prefix=""):
     df = pd.DataFrame(datalist).T
@@ -258,8 +258,8 @@ class FeatureExtractor(Task):
         next_features = self.vectorizer.batch_get_features([rd['next_line'] for rd in self.row_data])
 
         self.speaker_code_dict.update({'' : -1})
-        #meta_features = make_df([[self.speaker_code_dict[s['two_back_speaker']] for s in self.row_data], [self.speaker_code_dict[s['previous_speaker']] for s in self.row_data], self.speaker_codes],["two_back_speaker", "previous_speaker", "current_speaker"])
-        meta_features = make_df([[self.speaker_code_dict[s['two_back_speaker']] for s in self.row_data], self.speaker_codes],["two_back_speaker", "current_speaker"])
+        meta_features = make_df([[self.speaker_code_dict[s['two_back_speaker']] for s in self.row_data], [self.speaker_code_dict[s['previous_speaker']] for s in self.row_data], self.speaker_codes],["two_back_speaker", "previous_speaker", "current_speaker"])
+        #meta_features = make_df([[self.speaker_code_dict[s['two_back_speaker']] for s in self.row_data], self.speaker_codes],["two_back_speaker", "current_speaker"])
         train_frame = pd.concat([pd.DataFrame(prev_features),pd.DataFrame(cur_features),pd.DataFrame(next_features),meta_features],axis=1)
         train_frame.index = range(train_frame.shape[0])
         data = {
@@ -323,6 +323,14 @@ class KNNRF(Task):
         test_data = data['data']
         match_data = data['current_features']
         reverse_speaker_code_dict = {data['speaker_code_dict'][k] : k for k in data['speaker_code_dict']}
+
+        speaker_list = []
+        speaker_codes = reverse_speaker_code_dict.keys()
+        for i in xrange(0,len(speaker_codes)):
+            s_text = "\n".join(list(data['speakers'][data['speakers']['speaker']==reverse_speaker_code_dict[speaker_codes[i]]]['line']))
+            speaker_list.append(s_text)
+        speaker_features = data['vectorizer'].batch_get_features(speaker_list)
+
         self.predictions = []
         counter = 0
         for script in test_data['voice_script']:
@@ -352,15 +360,23 @@ class KNNRF(Task):
                 cur_features = data['vectorizer'].get_features(line)
                 next_features = data['vectorizer'].get_features(next_line)
 
-                #meta_features = make_df([[two_back_speaker], [previous_speaker]],["two_back_speaker", "previous_speaker"])
-                meta_features = make_df([[two_back_speaker]],["two_back_speaker"])
+                meta_features = make_df([[two_back_speaker], [previous_speaker]],["two_back_speaker", "previous_speaker"])
+                #meta_features = make_df([[two_back_speaker]],["two_back_speaker"])
                 train_frame = pd.concat([pd.DataFrame(prev_features),pd.DataFrame(cur_features),pd.DataFrame(next_features), meta_features],axis=1)
 
                 #nearest_match, distance = self.find_nearest_match(cur_features,match_data)
                 #if distance<DISTANCE_MIN:
                 #    speaker_code[i] = data['speakers']['speaker_code'][nearest_match]
                 #    continue
+
+
                 speaker_code[i] = alg.predict(train_frame)[0]
+
+                nearest_match, distance = self.find_nearest_match(cur_features, speaker_features)
+                if distance<DISTANCE_MIN:
+                    speaker_code[i] = data['speaker_code_dict'][speaker_codes[nearest_match]]
+                    continue
+
                 for k in CHARACTERS:
                     for c in CHARACTERS[k]:
                         if c in previous_line:
