@@ -22,7 +22,7 @@ import random
 import logging
 log = logging.getLogger(__name__)
 
-MAX_FEATURES = 200
+MAX_FEATURES = 300
 DISTANCE_MIN=1
 RESET_SCENE_EVERY = 1000
 
@@ -273,13 +273,14 @@ class RandomForestTrain(Train):
     category = RegistryCategories.algorithms
     namespace = get_namespace(__module__)
     algorithm = RandomForestRegressor
-    args = {'n_estimators' : 300, 'min_samples_leaf' : 1, 'compute_importances' : True}
+    args = {'n_estimators' : 300, 'min_samples_leaf' : 4, 'compute_importances' : True}
 
     help_text = "Train and predict with Random Forest."
 
 class KNNRF(Task):
     data = Complex()
     predictions = Complex()
+    importances = Complex()
 
     data_format = SimpsonsFormats.dataframe
 
@@ -302,13 +303,13 @@ class KNNRF(Task):
         """
 
         vec_length = math.floor(MAX_FEATURES/3)
-        from preprocess import CHARACTERS
 
         algo = kwargs.get('algo')
         alg = algo()
         train_data = data['train_frame'].iloc[:,:-1]
         target = data['train_frame']['current_speaker']
-        alg.train(train_data,target, **algo.args)
+        clf = alg.train(train_data,target, **algo.args)
+        self.importances=clf.feature_importances_
 
         test_data = data['data']
         match_data = data['current_features']
