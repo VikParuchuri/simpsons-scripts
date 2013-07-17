@@ -251,7 +251,8 @@ class FeatureExtractor(Task):
         next_features = self.vectorizer.batch_get_features([rd['next_line'] for rd in self.row_data])
 
         self.speaker_code_dict.update({'' : -1})
-        meta_features = make_df([[self.speaker_code_dict[s['two_back_speaker']] for s in self.row_data], [self.speaker_code_dict[s['previous_speaker']] for s in self.row_data], self.speaker_codes],["two_back_speaker", "previous_speaker", "current_speaker"])
+        #meta_features = make_df([[self.speaker_code_dict[s['two_back_speaker']] for s in self.row_data], [self.speaker_code_dict[s['previous_speaker']] for s in self.row_data], self.speaker_codes],["two_back_speaker", "previous_speaker", "current_speaker"])
+        meta_features = make_df([[self.speaker_code_dict[s['two_back_speaker']] for s in self.row_data], self.speaker_codes],["two_back_speaker", "current_speaker"])
         train_frame = pd.concat([pd.DataFrame(prev_features),pd.DataFrame(cur_features),pd.DataFrame(next_features),meta_features],axis=1)
         train_frame.index = range(train_frame.shape[0])
         data = {
@@ -346,7 +347,8 @@ class KNNRF(Task):
                 cur_features = data['vectorizer'].get_features(line)
                 next_features = data['vectorizer'].get_features(next_line)
 
-                meta_features = make_df([[two_back_speaker], [previous_speaker]],["two_back_speaker", "previous_speaker"])
+                #meta_features = make_df([[two_back_speaker], [previous_speaker]],["two_back_speaker", "previous_speaker"])
+                meta_features = make_df([[two_back_speaker]],["two_back_speaker"])
                 train_frame = pd.concat([pd.DataFrame(prev_features),pd.DataFrame(cur_features),pd.DataFrame(next_features), meta_features],axis=1)
 
                 #nearest_match, distance = self.find_nearest_match(cur_features,match_data)
