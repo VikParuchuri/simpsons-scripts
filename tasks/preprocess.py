@@ -10,7 +10,8 @@ from percept.tests.framework import Tester
 from percept.conf.base import settings
 import re
 from sklearn.cluster import KMeans
-
+import os
+import json
 
 log = logging.getLogger(__name__)
 
@@ -126,7 +127,7 @@ class CleanupScriptText(Task):
         self.data = self.predict(data)
 
     def check_for_line_split(self, line):
-        return line.split(":")[0] in CHARACTERS
+        return line.split(":")[0] in CHARACTERS + SECONDARY_CHARACTERS + SCHOOL + HOMER_FRIENDS + BURNS + KIDS
 
     def predict(self, data, **kwargs):
         """
@@ -141,20 +142,6 @@ class CleanupScriptText(Task):
             for (i,line) in enumerate(script_lines):
                 current_line = current_line.strip()
                 line = line.strip()
-                """
-                for k in CHARACTER_REPLACEMENT:
-                    line = re.sub(k,CHARACTER_REPLACEMENT[k],line)
-                for k in SECONDARY_CHARACTERS:
-                    line = re.sub(k+":","Secondary:",line)
-                for k in KIDS:
-                    line = re.sub(k+":","Kid:",line)
-                for k in SCHOOL:
-                    line = re.sub(k+":","School:",line)
-                for k in BURNS:
-                    line = re.sub(k+":","Burns:",line)
-                for k in HOMER_FRIENDS:
-                    line = re.sub(k+":","HomerFriend:",line)
-                """
                 if line.startswith("[") and line.endswith("]"):
                     continue
                 if line.startswith("-"):
@@ -190,25 +177,47 @@ class ReformatScriptText(Task):
 
     help_text = "Cleanup simpsons scripts."
 
+    args = {'scriptfile' : os.path.abspath(os.path.join(settings.PROJECT_PATH, "data/raw_scripts2.json"))}
+
     def train(self, data, target, **kwargs):
         """
         Used in the training phase.  Override.
         """
         self.data = data
-        self.predict(self.data)
+        self.predict(self.data, **kwargs)
 
     def predict(self, data, **kwargs):
         """
         Used in the predict phase, after training.  Override
         """
 
+        voice_scripts = list(data['voice_script'])
+        scriptfile = kwargs['scriptfile']
+        json_scripts = json.load(open(scriptfile))
+        for s in json_scripts:
+            voice_scripts+=s['script']
         script_segments = []
         for script in data['voice_script']:
+            script = script.replace("\"","")
             lines = script.split("\n")
             segment = []
             for line in lines:
                 if line.strip()!="":
                     line = line.encode('ascii','ignore')
+                    """
+                    for k in CHARACTER_REPLACEMENT:
+                        line = re.sub(k,CHARACTER_REPLACEMENT[k],line)
+                    for k in SECONDARY_CHARACTERS:
+                        line = re.sub(k+":","Secondary:",line)
+                    for k in KIDS:
+                        line = re.sub(k+":","Kid:",line)
+                    for k in SCHOOL:
+                        line = re.sub(k+":","School:",line)
+                    for k in BURNS:
+                        line = re.sub(k+":","Burns:",line)
+                    for k in HOMER_FRIENDS:
+                        line = re.sub(k+":","HomerFriend:",line)
+                    """
                     line_split = line.split(":")
                     segment.append({'speaker' : line_split[0].strip(),
                                     'line' : ":".join(line_split[1:]).strip()})
@@ -222,6 +231,7 @@ class ClusterScriptText(Task):
     data = Complex()
     clusters = Complex()
     predictions = Complex()
+    clusters = List()
 
     data_format = SimpsonsFormats.dataframe
 
@@ -271,6 +281,14 @@ class ClusterScriptText(Task):
 
         cl = KMeans()
         self.predictions = cl.fit_predict(features)
+
+        for i in xrange(0,max(self.predictions)):
+            clust = []
+            for c in xrange(0,len(speaker_codes)):
+                if self.predictions[c]==i:
+                    clust.append(unique_speakers[c])
+            self.clusters.append(clust)
+
 
 class CleanupTranscriptList(CleanupScriptList):
     help_text = "Cleanup simpsons transcripts."
