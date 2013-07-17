@@ -5,7 +5,6 @@ from percept.fields.base import Complex, List, Dict, Float
 from inputs.inputs import SimpsonsFormats
 from percept.utils.models import RegistryCategories, get_namespace
 import logging
-import pandas as pd
 from percept.tests.framework import Tester
 from percept.conf.base import settings
 import re
@@ -13,6 +12,9 @@ from sklearn.cluster import KMeans
 import os
 import json
 from itertools import chain
+from matplotlib import pyplot
+import numpy as np
+from sklearn.decomposition import PCA
 
 log = logging.getLogger(__name__)
 
@@ -310,6 +312,9 @@ def check_if_character(character):
     return character in all_characters
 
 def find_replacement(character):
+    for k in CHARACTER_REPLACEMENT:
+        if k==character:
+            character = CHARACTER_REPLACEMENT[k]
     for k in CHARACTERS:
         if character in CHARACTERS[k]:
             return k
@@ -382,7 +387,7 @@ class ReformatScriptText(Task):
 
     help_text = "Cleanup simpsons scripts."
 
-    args = {'scriptfile' : os.path.abspath(os.path.join(settings.PROJECT_PATH, "data/raw_scripts2.json"))}
+    args = {'scriptfile' : os.path.abspath(os.path.join(settings.PROJECT_PATH, "data/raw_scripts2.json")), 'do_replace' : True}
 
     def train(self, data, target, **kwargs):
         """
@@ -398,6 +403,7 @@ class ReformatScriptText(Task):
 
         voice_scripts = list(data['voice_script'])
         scriptfile = kwargs['scriptfile']
+        do_replace = kwargs['do_replace']
         json_scripts = json.load(open(scriptfile))
         voice_scripts+=[s['script'] for s in json_scripts]
         script_segments = []
@@ -409,7 +415,8 @@ class ReformatScriptText(Task):
                 if line.strip()!="":
                     line = line.encode('ascii','ignore')
                     line_split = line.split(":")
-                    line_split[0] = find_replacement(line_split[0].strip())
+                    if do_replace:
+                        line_split[0] = find_replacement(line_split[0].strip())
                     segment.append({'speaker' : line_split[0],
                                     'line' : ":".join(line_split[1:]).strip()})
                 else:
@@ -425,6 +432,7 @@ class ClusterScriptText(Task):
     clusters = Complex()
     predictions = Complex()
     clusters = List()
+    cl = Complex()
 
     data_format = SimpsonsFormats.dataframe
 
@@ -450,7 +458,9 @@ class ClusterScriptText(Task):
         vec = Vectorizer()
 
         reformatter = ReformatScriptText()
-        reformatter.train(data, "", **reformatter.args)
+        args = reformatter.args
+        args['do_replace'] = False
+        reformatter.train(data, "", **args)
 
         script_segments = list(chain.from_iterable(reformatter.voice_lines))
         text = [s['line'] for s in script_segments]
@@ -469,6 +479,7 @@ class ClusterScriptText(Task):
 
         cl = KMeans()
         self.predictions = cl.fit_predict(features)
+        self.cl = cl
 
         for i in xrange(0,max(self.predictions)):
             clust = []
@@ -477,6 +488,17 @@ class ClusterScriptText(Task):
                     clust.append(unique_speakers[c])
             self.clusters.append(clust)
 
+        pca = PCA(n_components=2, whiten=True).fit(features)
+        rf = pca.transform(features)
+        labels = cl.labels_
+        pyplot.clf()
+        centroids = cl.cluster_centers_
+        pyplot.cla()
+        for i in range(max(labels)):
+            ds = rf[np.where(labels==i)]
+            pyplot.plot(ds[:,0],ds[:,1],'o', label=self.clusters[i][0])
+        pyplot.legend(loc=3)
+        pyplot.savefig('clusters.png')
 
 class CleanupTranscriptList(CleanupScriptList):
     help_text = "Cleanup simpsons transcripts."
