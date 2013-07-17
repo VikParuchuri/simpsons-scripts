@@ -276,7 +276,7 @@ class ClusterScriptText(Task):
             s_text = "\n".join(list(speaker_frame[speaker_frame['speaker']==i]['text']))
             speaker_list.append(s_text)
 
-        vec.fit(speaker_list, speaker_codes, 200,min_features=1)
+        vec.fit(speaker_list, speaker_codes, 200,min_features=2)
         features = vec.batch_get_features(speaker_list)
 
         cl = KMeans()
@@ -301,6 +301,21 @@ class ClusterScriptText(Task):
             pyplot.plot(ds[:,0],ds[:,1],'o', label=self.clusters[i][0])
         pyplot.legend(loc=8)
         pyplot.savefig('clusters.png')
+
+        vec1 = Vectorizer()
+        speaker_codes = [speaker_code_dict[k] for k in speaker]
+
+        vec1.fit(text, speaker_codes, 200,min_features=2)
+        features = vec1.batch_get_features(text)
+
+        pca = PCA(n_components=2, whiten=True).fit(features)
+        rf = pca.transform(features)
+        pyplot.clf()
+        pyplot.cla()
+        for i in range(len(speaker_codes)):
+            pyplot.plot(rf[i,0],rf[i,1],'o', label=speaker[i])
+        pyplot.savefig('all_speakers.png')
+
 
 class CleanupTranscriptList(CleanupScriptList):
     help_text = "Cleanup simpsons transcripts."

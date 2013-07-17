@@ -94,7 +94,7 @@ class Vectorizer(object):
         self.stemmer = PorterStemmer()
         new_text = self.batch_generate_new_text(input_text)
         input_text = [input_text[i] + new_text[i] for i in xrange(0,len(input_text))]
-        self.vectorizer1 = CountVectorizer(ngram_range=(1,2), min_df = min_features/len(input_text), max_df=.4)
+        self.vectorizer1 = CountVectorizer(ngram_range=(1,2), min_df = min_features/len(input_text), max_df=.4, stop_words="english")
         self.vectorizer1.fit(input_text)
         self.vocab = self.get_vocab(input_text, input_scores, max_features)
         self.vectorizer = CountVectorizer(ngram_range=(1,2), vocabulary=self.vocab)
@@ -141,23 +141,29 @@ class Vectorizer(object):
         train_mat = self.vectorizer1.transform(input_text)
         input_score_med = np.median(input_scores)
         new_scores = [0 if i<=input_score_med else 1 for i in input_scores]
-        pvalues = []
-        for i in xrange(0,train_mat.shape[1]):
-            lcol = np.asarray(train_mat.getcol(i).todense().transpose())[0]
-            good_lcol = lcol[[n for n in xrange(0,len(new_scores)) if new_scores[n]==1]]
-            bad_lcol = lcol[[n for n in xrange(0,len(new_scores)) if new_scores[n]==0]]
-            good_lcol_present = len(good_lcol[good_lcol > 0])
-            good_lcol_missing = len(good_lcol[good_lcol == 0])
-            bad_lcol_present = len(bad_lcol[bad_lcol > 0])
-            bad_lcol_missing = len(bad_lcol[bad_lcol == 0])
-            pval = pvalue(good_lcol_present, bad_lcol_present, good_lcol_missing, bad_lcol_missing)
-            pvalues.append(pval.two_tail)
-        col_inds = list(xrange(0,train_mat.shape[1]))
-        p_frame = pd.DataFrame(np.array([col_inds, pvalues]).transpose(), columns=["inds", "pvalues"])
-        p_frame = p_frame.sort(['pvalues'], ascending=True)
-        getVar = lambda searchList, ind: [searchList[int(i)] for i in ind]
-        vocab = getVar(self.vectorizer1.get_feature_names(), p_frame['inds'][:max_features])
-        return vocab
+        ind_max_features = math.floor(max_features/max(input_scores))
+        all_vocab = []
+        for s in xrange(0,max(input_scores)):
+            sel_inds = [i for i in xrange(0,len(input_scores)) if input_scores[i]==s]
+            out_inds = [i for i in xrange(0,len(input_scores)) if input_scores[i]!=s]
+            pvalues = []
+            for i in xrange(0,train_mat.shape[1]):
+                lcol = np.asarray(train_mat.getcol(i).todense().transpose())[0]
+                good_lcol = lcol[sel_inds]
+                bad_lcol = lcol[out_inds]
+                good_lcol_present = len(good_lcol[good_lcol > 0])
+                good_lcol_missing = len(good_lcol[good_lcol == 0])
+                bad_lcol_present = len(bad_lcol[bad_lcol > 0])
+                bad_lcol_missing = len(bad_lcol[bad_lcol == 0])
+                pval = pvalue(good_lcol_present, bad_lcol_present, good_lcol_missing, bad_lcol_missing)
+                pvalues.append(pval.two_tail)
+            col_inds = list(xrange(0,train_mat.shape[1]))
+            p_frame = pd.DataFrame(np.array([col_inds, pvalues]).transpose(), columns=["inds", "pvalues"])
+            p_frame = p_frame.sort(['pvalues'], ascending=True)
+            getVar = lambda searchList, ind: [searchList[int(i)] for i in ind]
+            vocab = getVar(self.vectorizer1.get_feature_names(), p_frame['inds'][:ind_max_features+2])
+            all_vocab.append(vocab)
+        return list(set(list(chain.from_iterable(all_vocab))))
 
     def batch_get_features(self, text):
         if not self.fit_done:
