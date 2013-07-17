@@ -35,22 +35,15 @@ SECONDARY_CHARACTERS = [
     u'Otto',
     u'Selma',
     u'Patty',
-    u'Smithers',
     u'Ms.K',
     u'Hutz',
     u'Nelson',
     u'Barney',
-    u'Milhouse',
-    u'Sideshow Bob',
     u'Grampa',
     u'Maggie',
     u'Apu',
     u'Krusty',
-    u'Skinner',
     u'Moe',
-    u'Burns',
-    u'Ned',
-    u'Wiggum',
 ]
 
 CHARACTERS = [
@@ -58,6 +51,13 @@ CHARACTERS = [
     u'Bart',
     u'Marge',
     u'Homer',
+    u'Skinner',
+    u'Burns',
+    u'Ned',
+    u'Wiggum',
+    u'Milhouse',
+    u'Smithers',
+    u'Sideshow Bob',
     u'Secondary'
 ]
 
