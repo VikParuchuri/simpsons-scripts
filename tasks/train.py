@@ -22,7 +22,7 @@ import random
 import logging
 log = logging.getLogger(__name__)
 
-MAX_FEATURES = 250
+MAX_FEATURES = 350
 DISTANCE_MIN=1
 RESET_SCENE_EVERY = 1000
 

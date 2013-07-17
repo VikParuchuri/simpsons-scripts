@@ -28,22 +28,41 @@ CHARACTER_REPLACEMENT = {
 
 SECONDARY_CHARACTERS = [
     u'Kent',
-    u'Lenny',
     u'Quimby',
     u'Troy',
-    u'Martin',
-    u'Otto',
     u'Selma',
     u'Patty',
-    u'Ms.K',
     u'Hutz',
-    u'Nelson',
-    u'Barney',
     u'Grampa',
-    u'Maggie',
-    u'Apu',
     u'Krusty',
+    u'Sideshow Bob',
+    u'Wiggum',
+]
+
+HOMER_FRIENDS = [
+    u'Lenny',
     u'Moe',
+    u'Barney',
+    u'Ned',
+    u'Apu',
+]
+
+KIDS = [
+    u'Nelson',
+    u'Martin',
+    u'Milhouse',
+    u'Maggie',
+]
+
+SCHOOL = [
+    u'Skinner',
+    u'Ms.K',
+    u'Otto',
+]
+
+BURNS = [
+    u'Burns',
+    u'Smithers',
 ]
 
 CHARACTERS = [
@@ -51,14 +70,11 @@ CHARACTERS = [
     u'Bart',
     u'Marge',
     u'Homer',
-    u'Skinner',
+    u'Secondary',
+    u'Kid',
+    u'School',
     u'Burns',
-    u'Ned',
-    u'Wiggum',
-    u'Milhouse',
-    u'Smithers',
-    u'Sideshow Bob',
-    u'Secondary'
+    u'HomerFriend',
 ]
 
 class CleanupScriptList(Task):
@@ -128,6 +144,14 @@ class CleanupScriptText(Task):
                     line = re.sub(k,CHARACTER_REPLACEMENT[k],line)
                 for k in SECONDARY_CHARACTERS:
                     line = re.sub(k+":","Secondary:",line)
+                for k in KIDS:
+                    line = re.sub(k+":","Kid:",line)
+                for k in SCHOOL:
+                    line = re.sub(k+":","School:",line)
+                for k in BURNS:
+                    line = re.sub(k+":","Burns:",line)
+                for k in HOMER_FRIENDS:
+                    line = re.sub(k+":","HomerFriend:",line)
                 if line.startswith("[") and line.endswith("]"):
                     continue
                 if line.startswith("-"):
