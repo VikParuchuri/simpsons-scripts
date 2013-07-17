@@ -23,38 +23,42 @@ CHARACTER_REPLACEMENT = {
     "G:" : "Grampa:",
     "Abe:" : "Grampa:",
     "Principal Skinner:" : "Skinner:",
-    "Ms. K:" : "Ms.K"
+    "Ms. K:" : "Ms.K",
 }
 
-CHARACTERS = [
-    u'Burns',
-    u'Lenny',
-    u'Skinner',
-    u'Martin',
-    u'Quimby',
-    u'Barney',
-    u'Apu',
+SECONDARY_CHARACTERS = [
     u'Kent',
+    u'Lenny',
+    u'Quimby',
+    u'Troy',
+    u'Martin',
+    u'Otto',
+    u'Selma',
+    u'Patty',
+    u'Smithers',
+    u'Ms.K',
+    u'Hutz',
+    u'Nelson',
+    u'Barney',
+    u'Milhouse',
+    u'Sideshow Bob',
     u'Grampa',
     u'Maggie',
-    u'Troy',
-    u'Ned',
-    u'Otto',
-    u'Patty',
-    u'Lisa',
-    u'Selma',
+    u'Apu',
     u'Krusty',
-    u'Sideshow Bob',
-    u'Bart',
-    u'Smithers',
-    u'Marge',
-    u'Wiggum',
+    u'Skinner',
     u'Moe',
+    u'Burns',
+    u'Ned',
+    u'Wiggum',
+]
+
+CHARACTERS = [
+    u'Lisa',
+    u'Bart',
+    u'Marge',
     u'Homer',
-    u'Hutz',
-    u'Ms.K',
-    u'Nelson',
-    u'Milhouse'
+    u'Secondary'
 ]
 
 class CleanupScriptList(Task):
@@ -122,6 +126,8 @@ class CleanupScriptText(Task):
                 line = line.strip()
                 for k in CHARACTER_REPLACEMENT:
                     line = re.sub(k,CHARACTER_REPLACEMENT[k],line)
+                for k in SECONDARY_CHARACTERS:
+                    line = re.sub(k+":","Secondary:",line)
                 if line.startswith("[") and line.endswith("]"):
                     continue
                 if line.startswith("-"):

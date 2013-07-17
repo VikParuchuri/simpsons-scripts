@@ -22,8 +22,9 @@ import random
 import logging
 log = logging.getLogger(__name__)
 
-MAX_FEATURES = 100
+MAX_FEATURES = 150
 DISTANCE_MIN=1
+RESET_SCENE_EVERY = 1000
 
 def make_df(datalist, labels, name_prefix=""):
     df = pd.DataFrame(datalist).T
@@ -83,6 +84,31 @@ class SpellCorrector(object):
         newword = max(candidates, key=self.NWORDS.get) + suffix
         self.cache.update({word : newword})
         return newword
+
+
+def get_vocab(input_text, input_scores, max_features):
+    vectorizer1 = CountVectorizer(ngram_range=(1,2), min_df = 3/len(input_text), max_df=.4)
+    vectorizer1.fit(input_text)
+    train_mat = vectorizer1.transform(input_text)
+    input_score_med = np.median(input_scores)
+    new_scores = [0 if i<=input_score_med else 1 for i in input_scores]
+    pvalues = []
+    for i in xrange(0,train_mat.shape[1]):
+        lcol = np.asarray(train_mat.getcol(i).todense().transpose())[0]
+        good_lcol = lcol[[n for n in xrange(0,len(new_scores)) if new_scores[n]==1]]
+        bad_lcol = lcol[[n for n in xrange(0,len(new_scores)) if new_scores[n]==0]]
+        good_lcol_present = len(good_lcol[good_lcol > 0])
+        good_lcol_missing = len(good_lcol[good_lcol == 0])
+        bad_lcol_present = len(bad_lcol[bad_lcol > 0])
+        bad_lcol_missing = len(bad_lcol[bad_lcol == 0])
+        pval = pvalue(good_lcol_present, bad_lcol_present, good_lcol_missing, bad_lcol_missing)
+        pvalues.append(pval.two_tail)
+    col_inds = list(xrange(0,train_mat.shape[1]))
+    p_frame = pd.DataFrame(np.array([col_inds, pvalues]).transpose(), columns=["inds", "pvalues"])
+    p_frame = p_frame.sort(['pvalues'], ascending=True)
+    getVar = lambda searchList, ind: [searchList[int(i)] for i in ind]
+    vocab = getVar(vectorizer1.get_feature_names(), p_frame['inds'][:max_features])
+    return vocab
 
 class Vectorizer(object):
     def __init__(self):
@@ -301,6 +327,7 @@ class KNNRF(Task):
         """
 
         vec_length = math.floor(MAX_FEATURES/3)
+        from preprocess import CHARACTERS
 
         algo = kwargs.get('algo')
         alg = algo()
@@ -316,17 +343,19 @@ class KNNRF(Task):
         for script in test_data['voice_script']:
             counter+=1
             log.info("On script {0} out of {1}".format(counter,len(test_data['voice_script'])))
+            if counter>5:
+                break
             lines = script.split("\n")
             speaker_code = [-1 for i in xrange(0,len(lines))]
             for (i,line) in enumerate(lines):
-                if i>0:
+                if i>0 and i%RESET_SCENE_EVERY!=0:
                     previous_line = lines[i-1]
                     previous_speaker = speaker_code[i-1]
                 else:
                     previous_line = ""
                     previous_speaker=  -1
 
-                if i>1:
+                if i>1 and i%RESET_SCENE_EVERY!=0:
                     two_back_speaker = speaker_code[i-2]
                 else:
                     two_back_speaker = -1
@@ -348,6 +377,10 @@ class KNNRF(Task):
                 #    speaker_code[i] = data['speakers']['speaker_code'][nearest_match]
                 #    continue
                 speaker_code[i] = alg.predict(train_frame)[0]
+                for c in CHARACTERS:
+                    if c in previous_line:
+                        speaker_code[i] = data['speaker_code_dict'][c]
+
             df = make_df([lines,speaker_code,[reverse_speaker_code_dict[round(s)] for s in speaker_code]],["line","speaker_code","speaker"])
             self.predictions.append(df)
         return data
