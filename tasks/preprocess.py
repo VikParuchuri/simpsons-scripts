@@ -10,6 +10,7 @@ from percept.tests.framework import Tester
 from percept.conf.base import settings
 import re
 
+
 log = logging.getLogger(__name__)
 
 PUNCTUATION = ["]",".","!","?"]
@@ -174,6 +175,7 @@ class ReformatScriptText(Task):
             segment = []
             for line in lines:
                 if line.strip()!="":
+                    line = line.encode('ascii','ignore')
                     line_split = line.split(":")
                     segment.append({'speaker' : line_split[0].strip(),
                                     'line' : ":".join(line_split[1:]).strip()})
@@ -219,15 +221,24 @@ class CleanupTranscriptText(CleanupScriptText):
         """
         voice_scripts = []
         for i in xrange(0,data.shape[0]):
-            script_lines = data['script'][i].split('\n')
+            script_lines = data['script'][i].split('\r \r')
             lines = []
+            current_line = ""
             for line in script_lines:
-                line = line.replace("-","\n")
+                line = line.replace("-","")
+                line = line.replace("\n", "")
                 line = line.replace("\\","")
                 line = line.strip()
-                lines.append(line)
-            lines = ("\n".join(lines)).split("\n")
-            lines = [l.strip() for l in lines if len(l)>1]
-            voice_scripts.append("\n".join(lines))
+                line = line.encode('ascii','ignore')
+                current_line= "{0} {1}".format(current_line,line)
+                if current_line[-1] in PUNCTUATION:
+                    lines.append(current_line)
+                    current_line = ""
+            lines = ("\n".join(lines))
+            lines = re.sub("\[.+\]","",lines)
+            lines = re.sub("[\r\t]","",lines)
+            lines = [l.strip() for l in lines.split("\n") if len(l)>10]
+            text = "\n".join(lines)
+            voice_scripts.append(text)
         data['voice_script'] = voice_scripts
         return data

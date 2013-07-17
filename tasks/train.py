@@ -315,7 +315,7 @@ class KNNRF(Task):
         counter = 0
         for script in test_data['voice_script']:
             counter+=1
-            log.info("On script {0}".format(counter))
+            log.info("On script {0} out of {1}".format(counter,len(test_data['voice_script'])))
             lines = script.split("\n")
             speaker_code = [-1 for i in xrange(0,len(lines))]
             for (i,line) in enumerate(lines):
@@ -343,10 +343,10 @@ class KNNRF(Task):
                 meta_features = make_df([[two_back_speaker], [previous_speaker]],["two_back_speaker", "previous_speaker"])
                 train_frame = pd.concat([pd.DataFrame(prev_features),pd.DataFrame(cur_features),pd.DataFrame(next_features),meta_features],axis=1)
 
-                nearest_match, distance = self.find_nearest_match(cur_features,match_data)
-                if distance<DISTANCE_MIN:
-                    speaker_code[i] = data['speakers']['speaker_code'][nearest_match]
-                    continue
+                #nearest_match, distance = self.find_nearest_match(cur_features,match_data)
+                #if distance<DISTANCE_MIN:
+                #    speaker_code[i] = data['speakers']['speaker_code'][nearest_match]
+                #    continue
                 speaker_code[i] = alg.predict(train_frame)[0]
             df = make_df([lines,speaker_code,[reverse_speaker_code_dict[round(s)] for s in speaker_code]],["line","speaker_code","speaker"])
             self.predictions.append(df)
