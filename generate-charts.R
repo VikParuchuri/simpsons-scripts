@@ -33,7 +33,7 @@ line_count = str_count(all_text,"\n")
 
 word_count = str_count(all_text," ")
 
-initial_data = fromJSON("data/initial_voice.json")
+initial_data = fromJSON("data/final_voice.json")
 speakers = unlist(lapply(initial_data,function(x) lapply(x,function(y) y[['speaker']])))
 lines = unlist(lapply(initial_data,function(x) lapply(x,function(y) y[['line']])))
 
@@ -80,5 +80,4 @@ p<-p + geom_text() + scale_size(range = c(7, 12), name="Word Frequency",guide="n
 p<-p+theme(panel.grid.major=theme_blank(),panel.grid.minor=element_blank(), plot.title=theme_text(size=30), axis.text.x  = theme_text(size=20),axis.ticks = element_blank(), axis.text.y = element_blank())
 p<-p+scale_x_discrete(expand=c(.2,.1)) + opts(axis.line = element_line())
 p
-ggsave(plot=p,filename=paste("new/",country_list[cou],".png",sep=""),width=15,height=15)
 

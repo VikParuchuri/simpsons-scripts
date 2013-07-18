@@ -335,6 +335,8 @@ class KNNRF(Task):
         counter = 0
         for script in test_data['voice_script']:
             counter+=1
+            if counter>3:
+                break
             log.info("On script {0} out of {1}".format(counter,len(test_data['voice_script'])))
             lines = script.split("\n")
             speaker_code = [-1 for i in xrange(0,len(lines))]
@@ -368,8 +370,10 @@ class KNNRF(Task):
 
                 nearest_match, distance = self.find_nearest_match(cur_features, speaker_features)
                 if distance<DISTANCE_MIN:
-                    speaker_code[i] = speaker_codes[nearest_match]
-                    continue
+                    sc = speaker_codes[nearest_match]
+                    if sc!= -1:
+                        speaker_code[i] = sc
+                        continue
 
                 for k in CHARACTERS:
                     for c in CHARACTERS[k]:
@@ -378,8 +382,10 @@ class KNNRF(Task):
 
                 nearest_match, distance = self.find_nearest_match(cur_features,match_data)
                 if distance<DISTANCE_MIN:
-                    speaker_code[i] = data['speakers']['speaker_code'][nearest_match]
-                    continue
+                    sc = data['speakers']['speaker_code'][nearest_match]
+                    if sc!= -1:
+                        speaker_code[i] = sc
+                        continue
 
             df = make_df([lines,speaker_code,[reverse_speaker_code_dict[round(s)] for s in speaker_code]],["line","speaker_code","speaker"])
             self.predictions.append(df)
@@ -392,4 +398,24 @@ class KNNRF(Task):
         return nearest_match, min(distances)
 
     def euclidean(self, v1, v2):
-        return np.sqrt(((v1-v2)**2).sum())
+        return np.sqrt(np.sum(np.square(np.subtract(v1,v2))))
+
+"""
+p = tasks[3].predictions.value
+speakers = []
+lines = []
+for pr in p:
+    speakers.append(list(pr['speaker']))
+    lines.append(list(pr['line']))
+from itertools import chain
+speakers = list(chain.from_iterable(speakers))
+lines = list(chain.from_iterable(lines))
+rows = []
+for (s,l) in zip(speakers, lines):
+    rows.append({
+    'speaker' : s,
+    'line': l,
+    })
+import json
+json.dump(rows,open("/home/vik/vikparuchuri/simpsons-scripts/data/final_voice.json","w+"))
+"""
