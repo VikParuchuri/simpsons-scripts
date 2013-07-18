@@ -1,0 +1,4 @@
+libsndfile-dev
+libasound2-dev
+libvorbis-dev
+ffmpeg

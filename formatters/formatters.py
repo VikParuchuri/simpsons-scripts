@@ -23,4 +23,25 @@ class ScriptFormatter(JSONFormat):
         """
         return input_data
 
+class SubtitleFormatter(JSONFormat):
+    namespace = get_namespace(__module__)
+
+    def from_subtitle(self,input_data):
+        """
+        Reads subtitle format input data and converts to json.
+        """
+        reformatted_data = []
+        for (i,row) in enumerate(input_data):
+            if i==0:
+                headers = row
+            else:
+                data_row = {}
+                for (j,h) in enumerate(headers):
+                    if j<len(row):
+                        data_row.update({h : row[j]})
+                    else:
+                        data_row.update({h : 0})
+                reformatted_data.append(data_row)
+        return reformatted_data
+
 

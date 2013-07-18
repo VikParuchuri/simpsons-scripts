@@ -43,3 +43,5 @@ percept.log
 stored_data
 data
 percept/docs/_build
+
+video_to_audio.py

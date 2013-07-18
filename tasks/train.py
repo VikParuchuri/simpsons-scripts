@@ -22,9 +22,9 @@ import random
 import logging
 log = logging.getLogger(__name__)
 
-MAX_FEATURES = 300
+MAX_FEATURES = 500
 DISTANCE_MIN=1
-CHARACTER_DISTANCE_MIN = .25
+CHARACTER_DISTANCE_MIN = .2
 RESET_SCENE_EVERY = 5
 
 def make_df(datalist, labels, name_prefix=""):

@@ -9,6 +9,8 @@ import sys
 #Various paths
 PROJECT_PATH = path(__file__).dirname().dirname()
 
+AUDIO_BASE_PATH = "/media/vik/FreeAgent GoFlex Drive/Tv Shows/The simpsons/"
+
 #Where to cache values during the run
 CACHE = "percept.fields.caches.MemoryCache"
 #Do we use json to serialize the values in in the cache?
