@@ -24,6 +24,7 @@ log = logging.getLogger(__name__)
 
 MAX_FEATURES = 300
 DISTANCE_MIN=1
+CHARACTER_DISTANCE_MIN = .25
 RESET_SCENE_EVERY = 5
 
 def make_df(datalist, labels, name_prefix=""):
@@ -335,8 +336,6 @@ class KNNRF(Task):
         counter = 0
         for script in test_data['voice_script']:
             counter+=1
-            if counter>3:
-                break
             log.info("On script {0} out of {1}".format(counter,len(test_data['voice_script'])))
             lines = script.split("\n")
             speaker_code = [-1 for i in xrange(0,len(lines))]
@@ -369,11 +368,10 @@ class KNNRF(Task):
                 speaker_code[i] = alg.predict(train_frame)[0]
 
                 nearest_match, distance = self.find_nearest_match(cur_features, speaker_features)
-                if distance<DISTANCE_MIN:
+                if distance<CHARACTER_DISTANCE_MIN:
                     sc = speaker_codes[nearest_match]
-                    if sc!= -1:
-                        speaker_code[i] = sc
-                        continue
+                    speaker_code[i] = sc
+                    continue
 
                 for k in CHARACTERS:
                     for c in CHARACTERS[k]:
@@ -383,9 +381,8 @@ class KNNRF(Task):
                 nearest_match, distance = self.find_nearest_match(cur_features,match_data)
                 if distance<DISTANCE_MIN:
                     sc = data['speakers']['speaker_code'][nearest_match]
-                    if sc!= -1:
-                        speaker_code[i] = sc
-                        continue
+                    speaker_code[i] = sc
+                    continue
 
             df = make_df([lines,speaker_code,[reverse_speaker_code_dict[round(s)] for s in speaker_code]],["line","speaker_code","speaker"])
             self.predictions.append(df)

@@ -34,10 +34,14 @@ line_count = str_count(all_text,"\n")
 word_count = str_count(all_text," ")
 
 initial_data = fromJSON("data/final_voice.json")
-speakers = unlist(lapply(initial_data,function(x) lapply(x,function(y) y[['speaker']])))
-lines = unlist(lapply(initial_data,function(x) lapply(x,function(y) y[['line']])))
+#speakers = unlist(lapply(initial_data,function(x) lapply(x,function(y) y[['speaker']])))
+#lines = unlist(lapply(initial_data,function(x) lapply(x,function(y) y[['line']])))
+speakers = unlist(lapply(initial_data,function(x)  x[['speaker']]))
+lines = unlist(lapply(initial_data,function(x) x[['line']]))
+
 
 voice_data = data.frame(speaker = speakers, line = lines)
+voice_data = voice_data[voice_data$speaker!="",]
 
 tab = table(voice_data$speaker)
 
@@ -45,7 +49,7 @@ m = qplot(names(tab), as.numeric(tab),geom="histogram")
 m = m + ylab("Number of Lines") + xlab("Character Name") + ggtitle("Lines per Character in Scripts")
 m
 
-unique_speakers = unique(speakers)
+unique_speakers = unique(voice_data$speaker)
 all_score_frames<-foreach(z=1:length(unique_speakers)) %do%
 {
   combined<-sentDetect(tolower(voice_data$line[voice_data$speaker==unique_speakers[z]]))
