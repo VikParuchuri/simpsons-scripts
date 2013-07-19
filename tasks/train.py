@@ -15,7 +15,7 @@ from percept.utils.models import RegistryCategories, get_namespace
 from percept.conf.base import settings
 import os
 from percept.tasks.train import Train
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestClassifier
 import pickle
 import random
 
@@ -281,7 +281,7 @@ class RandomForestTrain(Train):
     clf = Complex()
     category = RegistryCategories.algorithms
     namespace = get_namespace(__module__)
-    algorithm = RandomForestRegressor
+    algorithm = RandomForestClassifier
     args = {'n_estimators' : 300, 'min_samples_leaf' : 4, 'compute_importances' : True}
 
     help_text = "Train and predict with Random Forest."

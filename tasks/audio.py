@@ -15,12 +15,17 @@ from scikits.audiolab import Sndfile
 from scikits.audiolab import oggread
 import pandas as pd
 from multiprocessing import Pool
+from sklearn.ensemble import RandomForestClassifier
+import math
+import random
+from itertools import chain
 
 log = logging.getLogger(__name__)
 
 class LoadAudioFiles(Task):
     data = Complex()
     all_files = List()
+    cv = Complex()
 
     data_format = SimpsonsFormats.dataframe
 
@@ -77,6 +82,15 @@ class LoadAudioFiles(Task):
             subtitle_frame = data[((data['season']==season) & (data['episode']==episode))]
             if subtitle_frame.shape[0]==0:
                 continue
+
+            #To cause loop to end early, remove if needed
+            label_frame = subtitle_frame[(subtitle_frame['label']!="")]
+            if label_frame.shape[0]==0:
+                continue
+            if counter>5:
+                break
+
+            counter+=1
             print "On file {0}".format(counter)
             f_data, fs, enc  = oggread(f)
             subtitle_frame = subtitle_frame.sort('start')
@@ -97,7 +111,14 @@ class LoadAudioFiles(Task):
             frames.append(df)
         data = pd.concat(frames,axis=0)
         data.index = range(data.shape[0])
+        label_codes = {k:i for (i,k) in enumerate(set(data['label']))}
+        data['label_code'] = [label_codes[k] for k in data['label']]
+        for c in list(data.columns):
+            data[c] = data[c].real
+        self.cv = CrossValidate()
 
+        cv_frame = data[data['label']!=""]
+        self.cv.train(cv_frame,"",**self.cv.args)
         return data
 
 def calc_slope(x,y):
@@ -170,3 +191,121 @@ def process_subtitle(d):
         return None
 
     return features
+
+class RandomForestTrain(Train):
+    """
+    A class to train a random forest
+    """
+    colnames = List()
+    clf = Complex()
+    category = RegistryCategories.algorithms
+    namespace = get_namespace(__module__)
+    algorithm = RandomForestClassifier
+    args = {'n_estimators' : 300, 'min_samples_leaf' : 4, 'compute_importances' : True}
+
+    help_text = "Train and predict with Random Forest."
+
+class CrossValidate(Task):
+    data = Complex()
+    results = Complex()
+    error = Float()
+    importances = Complex()
+    importance = Complex()
+    column_names = List()
+
+    data_format = SimpsonsFormats.dataframe
+
+    category = RegistryCategories.preprocessors
+    namespace = get_namespace(__module__)
+    args = {
+        'nfolds' : 3,
+        'algo' : RandomForestTrain,
+        'target_name' : 'label_code',
+        'non_predictors' : ["label","line"]
+    }
+
+    help_text = "Cross validate simpsons data."
+
+    def cross_validate(self, data, **kwargs):
+        nfolds = kwargs.get('nfolds', 3)
+        algo = kwargs.get('algo')
+        seed = kwargs.get('seed', 1)
+        target_name = kwargs.get('target_name')
+        non_predictors = kwargs.get('non_predictors')
+
+        self.column_names = [l for l in list(data.columns) if l not in non_predictors]
+        data_len = data.shape[0]
+        counter = 0
+        fold_length = int(math.floor(data_len/nfolds))
+        folds = []
+        data_seq = list(xrange(0,data_len))
+        random.seed(seed)
+        random.shuffle(data_seq)
+
+        for fold in xrange(0, nfolds):
+            start = counter
+
+            end = counter + fold_length
+            if fold == (nfolds-1):
+                end = data_len
+            folds.append(data_seq[start:end])
+            counter += fold_length
+
+        results = []
+        data.index = range(data.shape[0])
+        self.importances = []
+        for (i,fold) in enumerate(folds):
+            predict_data = data.iloc[fold,:]
+            out_indices = list(chain.from_iterable(folds[:i] + folds[(i + 1):]))
+            train_data = data.iloc[out_indices,:]
+            alg = algo()
+            target = train_data[target_name]
+            train_data = train_data[[l for l in list(train_data.columns) if l not in non_predictors]]
+            predict_data = predict_data[[l for l in list(predict_data.columns) if l not in non_predictors]]
+            clf = alg.train(train_data,target,**algo.args)
+            results.append(alg.predict(predict_data))
+            self.importances.append(clf.feature_importances_)
+        return results, folds
+
+    def train(self, data, target, **kwargs):
+        """
+        Used in the training phase.  Override.
+        """
+        self.target_name = kwargs.get('target_name')
+        results, folds = self.cross_validate(data, **kwargs)
+        self.gather_results(results, folds, data)
+
+    def gather_results(self, results, folds, data):
+        full_results = list(chain.from_iterable(results))
+        full_indices = list(chain.from_iterable(folds))
+        partial_result_df = make_df([full_results, full_indices], ["result", "index"])
+        partial_result_df = partial_result_df.sort(["index"])
+        partial_result_df.index = range(partial_result_df.shape[0])
+        result_df = pd.concat([partial_result_df, data], axis=1)
+        self.results = result_df
+        self.calc_error(result_df)
+        self.calc_importance(self.importances, self.column_names)
+
+    def calc_error(self, result_df):
+        self.error = np.mean(np.abs(result_df['result'] - result_df[self.target_name]))
+
+    def calc_importance(self, importances, col_names):
+        importance_frame = pd.DataFrame(importances)
+        importance_frame.columns = col_names
+        self.importance = importance_frame.mean(axis=0)
+        self.importance.sort(0)
+
+    def predict(self, data, **kwargs):
+        """
+        Used in the predict phase, after training.  Override
+        """
+        pass
+
+def make_df(datalist, labels, name_prefix=""):
+    df = pd.DataFrame(datalist).T
+    if name_prefix!="":
+        labels = [name_prefix + "_" + l for l in labels]
+    labels = [l.replace(" ", "_").lower() for l in labels]
+    df.columns = labels
+    df.index = range(df.shape[0])
+    return df
