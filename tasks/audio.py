@@ -166,7 +166,12 @@ def calc_features(vec,freq):
     mins = [np.min(i) for i in bins]
     amin,smin,stmin = get_indicators(mins)
     apeak, speak, stpeak = get_indicators(peaks)
-    cepstrums = [np.fft.ifft(np.log(np.abs(np.fft.fft(i)))) for i in bins]
+    fft = np.fft.fft(vec)
+    bin_fft = []
+    for i in xrange(0,bc):
+        bin_fft.append(fft[(i*binwidth):(binwidth*i + binwidth)])
+
+    cepstrums = [np.fft.ifft(np.log(np.abs(i))) for i in bin_fft]
     inter = [get_indicators(i) for i in cepstrums]
     acep,scep, stcep = get_indicators([i[0] for i in inter])
     aacep,sscep, stsscep = get_indicators([i[1] for i in inter])
@@ -179,7 +184,11 @@ def calc_features(vec,freq):
     spread = np.sqrt(u[-1] - u[0]**2)
     skewness = (u[0]**3 - 3*u[0]*u[5] + u[-1])/spread**3
 
-    return [m,sf,mx,mi,sdev,amin,smin,stmin,apeak,speak,stpeak,acep,scep,stcep,aacep,sscep,stsscep,zcc,zccn,spread,skewness]
+    #Spectral slope
+    ss = calc_slope(range(fft),fft)
+    avss = calc_slope(bincount,[calc_slope(range(len(i),i)) for i in bin_fft])
+
+    return [m,sf,mx,mi,sdev,amin,smin,stmin,apeak,speak,stpeak,acep,scep,stcep,aacep,sscep,stsscep,zcc,zccn,spread,skewness,ss,avss]
 
 def extract_features(sample,freq):
     left = calc_features(sample[:,0],freq)
@@ -226,7 +235,7 @@ class CrossValidate(Task):
         'nfolds' : 3,
         'algo' : RandomForestTrain,
         'target_name' : 'label_code',
-        'non_predictors' : ["label","line"]
+        'non_predictors' : ["label","line","label_code"]
     }
 
     help_text = "Cross validate simpsons data."
