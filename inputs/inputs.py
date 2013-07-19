@@ -8,6 +8,7 @@ import os
 from itertools import chain
 import logging
 import json
+import re
 log = logging.getLogger(__name__)
 
 class SimpsonsFormats(DataFormats):
@@ -38,26 +39,30 @@ class SubtitleInput(BaseInput):
     help_text = "Reformat simpsons script data."
     namespace = get_namespace(__module__)
 
-    def read_input(self, directory, has_header=True):
-        """
-        directory is a path to a directory with multiple csv files
-        """
+
+    def get_episode_metadata(self, name):
+        episode_code = re.search("\[\d+\.\d+\]", name).group(0).replace("[","").replace("]","")
+        season, episode = episode_code.split(".")
+        season = int(season)
+        episode = int(episode)
+        return season, episode
+
     def read_input(self, directory, has_header=True):
         """
         directory is a path to a directory with multiple csv files
         """
 
-        datafiles = [ f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory,f)) and (f.endswith(".srt") or f.endswith(".sub"))]
+        sub_datafiles = [ f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory,f)) and f.endswith(".sub")]
         all_sub_data = []
-        for infile in datafiles:
+        for infile in sub_datafiles:
             stream = open(os.path.join(directory, infile))
+            season,episode = self.get_episode_metadata(infile)
             data=stream.read()
             row_data = []
-            for (i, row) in enumerate(data):
-                if i==0:
-                    row_data.append(["Start","End","Line","Label"])
-                else:
-                    row_split = row.split("}")
+            for (i, row) in enumerate(data.split("\n")):
+                row = row.replace('\r','')
+                row_split = row.split("}")
+                if len(row_split)>2:
                     start = row_split[0].replace("{","")
                     end = row_split[1].replace("{","")
                     line = row_split[2].split("{")[0]
@@ -65,7 +70,27 @@ class SubtitleInput(BaseInput):
                         label = row_split[2].split("{")[1].replace("}","")
                     else:
                         label = ""
-                    row_data.append([start,end,line,label])
+                    row_data.append([start,end,line,label,season,episode])
             all_sub_data.append(row_data)
-        sub_data = list(chain.from_iterable(all_sub_data))
+        srt_datafiles = [ f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory,f)) and f.endswith(".srt")]
+        for infile in srt_datafiles:
+            stream = open(os.path.join(directory, infile))
+            season,episode = self.get_episode_metadata(infile)
+            data=stream.read()
+            row_data = []
+            for (i, row) in enumerate(data.split("\r\n\r\n")):
+                row_split = row.split("\r\n")
+                if len(row_split)>3:
+                    timing = row_split[1]
+                    start = float(timing.split("-->")[0].replace(",",".").split(":")[-1])*24
+                    end = float(timing.split("-->")[1].replace(",",".").split(":")[-1])*24
+                    line = " ".join(row_split[2:])
+                    if len(line.split("{"))>1:
+                        line = line.split("{")[0]
+                        label = line.split("{")[1].replace("}","")
+                    else:
+                        label = ""
+                    row_data.append([start,end,line,label,season,episode])
+            all_sub_data.append(row_data)
+        sub_data = [["Start","End","Line","Label","Season","Episode"]] + list(chain.from_iterable(all_sub_data))
         self.data = sub_data
