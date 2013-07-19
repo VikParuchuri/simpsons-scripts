@@ -85,11 +85,13 @@ class LoadAudioFiles(Task):
                 continue
 
             #To cause loop to end early, remove if needed
+            """
             label_frame = subtitle_frame[(subtitle_frame['label']!="")]
             if label_frame.shape[0]==0:
                 continue
             if counter>5:
                 break
+            """
 
             counter+=1
             print "On file {0}".format(counter)
@@ -186,9 +188,11 @@ def calc_features(vec,freq):
 
     #Spectral slope
     #ss = calc_slope(np.arange(len(fft)),fft)
-    #avss = calc_slope(bincount,[calc_slope(np.arange(len(i)),i) for i in bin_fft])
+    avss = [calc_slope(np.arange(len(i)),i) for i in bin_fft]
+    savss = calc_slope(bincount,avss)
+    mavss = np.mean(avss)
 
-    return [m,sf,mx,mi,sdev,amin,smin,stmin,apeak,speak,stpeak,acep,scep,stcep,aacep,sscep,stsscep,zcc,zccn,spread,skewness]
+    return [m,sf,mx,mi,sdev,amin,smin,stmin,apeak,speak,stpeak,acep,scep,stcep,aacep,sscep,stsscep,zcc,zccn,spread,skewness,savss,mavss]
 
 def extract_features(sample,freq):
     left = calc_features(sample[:,0],freq)
