@@ -68,6 +68,10 @@ class LoadAudioFiles(Task):
         std = np.std(vec)
         return mean, slope, std
 
+    def calc_u(self,vec):
+        fft = np.fft.fft(vec)
+        return np.sum(np.multiply(fft,vec))/np.sum(vec)
+
     def calc_features(self, vec,freq):
         #bin count
         bc = 10
@@ -98,7 +102,11 @@ class LoadAudioFiles(Task):
         zcc = len(zero_crossings)
         zccn = zcc/freq
 
-        return [m,sf,mx,mi,sdev,amin,smin,stmin,apeak,speak,stpeak,acep,scep,stcep,aacep,sscep,stsscep,zcc,zccn]
+        u = [self.calc_u(i) for i in bins]
+        spread = np.sqrt(u[-1] - u[0]**2)
+        skewness = (u[0]**3 - 3*u[0]*u[5] + u[-1])/spread**3
+
+        return [m,sf,mx,mi,sdev,amin,smin,stmin,apeak,speak,stpeak,acep,scep,stcep,aacep,sscep,stsscep,zcc,zccn,spread,skewness]
 
     def extract_features(self,sample,freq):
         left = self.calc_features(sample[:,0],freq)
@@ -130,7 +138,7 @@ class LoadAudioFiles(Task):
                 continue
             print "On file {0}".format(counter)
             counter+=1
-            if counter>5:
+            if counter>2:
                 break
             f_data, fs, enc  = oggread(f)
             current_frame = 0
@@ -138,17 +146,23 @@ class LoadAudioFiles(Task):
             subtitle_frame.index = range(subtitle_frame.shape[0])
             audio_samples = []
             audio_features = []
+            good_rows = []
             for i in xrange(0,subtitle_frame.shape[0]):
                 start = subtitle_frame['start'].iloc[i]
                 end = subtitle_frame['end'].iloc[i]
                 samp = f_data[(start*fs):(end*fs),:]
-                features = self.extract_features(samp,fs)
-                audio_features.append(features)
-            df = pd.concat([subtitle_frame,pd.DataFrame(audio_features)],axis=1)
+                try:
+                    features = self.extract_features(samp,fs)
+                    audio_features.append(features)
+                    good_rows.append(i)
+                except Exception:
+                    continue
+            df = pd.concat([subtitle_frame.iloc[good_rows],pd.DataFrame(audio_features)],axis=1)
             df = df.fillna(-1)
             df.columns = range(df.shape[1])
             df.index = range(df.shape[0])
             frames.append(df)
         data = pd.concat(frames,axis=0)
+        data.index = range(data.shape[0])
 
         return data
