@@ -64,9 +64,9 @@ class LoadAudioFiles(Task):
         """
         Used in the predict phase, after training.  Override
         """
+        p = Pool(4, maxtasksperchild=50)
         audio_dir = kwargs['audio_dir']
         all_files = []
-        p = Pool(4,maxtasksperchild=50)
         for ad in os.listdir(audio_dir):
             ad_path = os.path.abspath(os.path.join(audio_dir,ad))
             if os.path.isdir(ad_path):
@@ -104,14 +104,14 @@ class LoadAudioFiles(Task):
                 samp = f_data[(start*fs):(end*fs),:]
                 samps.append({'samp' : samp, 'fs' : fs})
             results = p.map(process_subtitle, samps)
-            p.close()
-            p.join()
             good_rows = [i for i in xrange(0,len(results)) if results[i]!=None]
             audio_features = [i for i in results if i!=None]
             df = pd.concat([subtitle_frame.iloc[good_rows],pd.DataFrame(audio_features)],axis=1)
             df = df.fillna(-1)
             df.index = range(df.shape[0])
             frames.append(df)
+        p.close()
+        p.join()
         data = pd.concat(frames,axis=0)
         data.index = range(data.shape[0])
         label_codes = {k:i for (i,k) in enumerate(set(data['label']))}
