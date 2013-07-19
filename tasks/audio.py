@@ -106,7 +106,11 @@ class LoadAudioFiles(Task):
         spread = np.sqrt(u[-1] - u[0]**2)
         skewness = (u[0]**3 - 3*u[0]*u[5] + u[-1])/spread**3
 
-        return [m,sf,mx,mi,sdev,amin,smin,stmin,apeak,speak,stpeak,acep,scep,stcep,aacep,sscep,stsscep,zcc,zccn,spread,skewness]
+        #Spectral slope
+        ss = self.calc_slope(range(vec),np.fft.fft(vec))
+        avss = self.calc_slope(bincount,[self.calc_slope(range(len(i),np.fft.fft(i))) for i in bins])
+
+        return [m,sf,mx,mi,sdev,amin,smin,stmin,apeak,speak,stpeak,acep,scep,stcep,aacep,sscep,stsscep,zcc,zccn,spread,skewness,ss,avss]
 
     def extract_features(self,sample,freq):
         left = self.calc_features(sample[:,0],freq)
@@ -138,7 +142,7 @@ class LoadAudioFiles(Task):
                 continue
             print "On file {0}".format(counter)
             counter+=1
-            if counter>2:
+            if counter>1:
                 break
             f_data, fs, enc  = oggread(f)
             current_frame = 0
@@ -159,7 +163,6 @@ class LoadAudioFiles(Task):
                     continue
             df = pd.concat([subtitle_frame.iloc[good_rows],pd.DataFrame(audio_features)],axis=1)
             df = df.fillna(-1)
-            df.columns = range(df.shape[1])
             df.index = range(df.shape[0])
             frames.append(df)
         data = pd.concat(frames,axis=0)
