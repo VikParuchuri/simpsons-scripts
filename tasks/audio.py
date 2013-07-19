@@ -107,8 +107,8 @@ class LoadAudioFiles(Task):
         skewness = (u[0]**3 - 3*u[0]*u[5] + u[-1])/spread**3
 
         #Spectral slope
-        ss = self.calc_slope(range(vec),np.fft.fft(vec))
-        avss = self.calc_slope(bincount,[self.calc_slope(range(len(i),np.fft.fft(i))) for i in bins])
+        ss = self.calc_slope(range(len(vec)),np.fft.fft(vec))
+        avss = self.calc_slope(bincount,[self.calc_slope(range(len(i)),np.fft.fft(i)) for i in bins])
 
         return [m,sf,mx,mi,sdev,amin,smin,stmin,apeak,speak,stpeak,acep,scep,stcep,aacep,sscep,stsscep,zcc,zccn,spread,skewness,ss,avss]
 
@@ -160,6 +160,7 @@ class LoadAudioFiles(Task):
                     audio_features.append(features)
                     good_rows.append(i)
                 except Exception:
+                    log.exception("Cannot generate features")
                     continue
             df = pd.concat([subtitle_frame.iloc[good_rows],pd.DataFrame(audio_features)],axis=1)
             df = df.fillna(-1)
