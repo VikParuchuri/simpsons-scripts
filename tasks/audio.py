@@ -127,17 +127,17 @@ class LoadAudioFiles(Task):
         return data
 
 def calc_slope(x,y):
-    x_mean = sum(x)/len(x)
-    y_mean = sum(y)/len(y)
-    x_dev = sum([abs(i-x_mean) for i in x])
-    y_dev = sum([abs(i-y_mean) for i in y])
+    x_mean = np.mean(x)
+    y_mean = np.mean(y)
+    x_dev = np.sum(np.abs(np.subtract(x,x_mean)))
+    y_dev = np.sum(np.abs(np.subtract(y,y_mean)))
 
     slope = (x_dev*y_dev)/(x_dev*x_dev)
     return slope
 
 def get_indicators(vec):
     mean = sum(vec)
-    slope = calc_slope(list(range(len(vec))),vec)
+    slope = calc_slope(np.arange(len(vec)),vec)
     std = np.std(vec)
     return mean, slope, std
 
@@ -185,8 +185,8 @@ def calc_features(vec,freq):
     skewness = (u[0]**3 - 3*u[0]*u[5] + u[-1])/spread**3
 
     #Spectral slope
-    ss = calc_slope(range(fft),fft)
-    avss = calc_slope(bincount,[calc_slope(range(len(i),i)) for i in bin_fft])
+    ss = calc_slope(np.arange(len(fft)),fft)
+    avss = calc_slope(bincount,[calc_slope(np.arange(len(i)),i) for i in bin_fft])
 
     return [m,sf,mx,mi,sdev,amin,smin,stmin,apeak,speak,stpeak,acep,scep,stcep,aacep,sscep,stsscep,zcc,zccn,spread,skewness,ss,avss]
 
