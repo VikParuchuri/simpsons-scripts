@@ -66,6 +66,7 @@ class LoadAudioFiles(Task):
         """
         audio_dir = kwargs['audio_dir']
         all_files = []
+        p = Pool(4,maxtasksperchild=50)
         for ad in os.listdir(audio_dir):
             ad_path = os.path.abspath(os.path.join(audio_dir,ad))
             if os.path.isdir(ad_path):
@@ -85,13 +86,11 @@ class LoadAudioFiles(Task):
                 continue
 
             #To cause loop to end early, remove if needed
-            """
             label_frame = subtitle_frame[(subtitle_frame['label']!="")]
             if label_frame.shape[0]==0:
                 continue
             if counter>5:
                 break
-            """
 
             counter+=1
             print "On file {0}".format(counter)
@@ -104,8 +103,9 @@ class LoadAudioFiles(Task):
                 end = subtitle_frame['end'].iloc[i]
                 samp = f_data[(start*fs):(end*fs),:]
                 samps.append({'samp' : samp, 'fs' : fs})
-            p = Pool(4)
             results = p.map(process_subtitle, samps)
+            p.close()
+            p.join()
             good_rows = [i for i in xrange(0,len(results)) if results[i]!=None]
             audio_features = [i for i in results if i!=None]
             df = pd.concat([subtitle_frame.iloc[good_rows],pd.DataFrame(audio_features)],axis=1)
@@ -121,11 +121,23 @@ class LoadAudioFiles(Task):
             data[c] = data[c].real
         self.cv = CrossValidate()
 
+        #Do cv to get error estimates
         cv_frame = data[data['label']!=""]
         self.cv.train(cv_frame,"",**self.cv.args)
         self.res = self.cv.results
         self.res = self.res[['line', 'label','label_code','result']]
         self.res['actual_result'] = [reverse_label_codes[i] for i in self.res['result']]
+
+        #Predict in the frame
+        alg = RandomForestTrain()
+        target = cv_frame['label_code']
+        non_predictors = ["label","line","label_code"]
+        train_names = [l for l in list(cv_frame.columns) if l not in non_predictors]
+        train_data = cv_frame[train_names]
+        predict_data = data[train_names]
+        clf = alg.train(train_data,target,**alg.args)
+        data['result_code'] = alg.predict(predict_data)
+        data['result_label'] = [reverse_label_codes[k] for k in data['result_code']]
         return data
 
 def calc_slope(x,y):
