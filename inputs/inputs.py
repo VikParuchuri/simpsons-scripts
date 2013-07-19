@@ -83,8 +83,12 @@ class SubtitleInput(BaseInput):
                 row_split = row.split("\r\n")
                 if len(row_split)>3:
                     timing = row_split[1]
-                    start = float(timing.split("-->")[0].replace(",",".").split(":")[-1])
-                    end = float(timing.split("-->")[1].replace(",",".").split(":")[-1])
+                    start_timing = timing.split("-->")[0].replace(",",".").split(":")
+                    start_seconds = float(start_timing[-1]) + float(start_timing[-2])*60 + float(start_timing[-3])*3600
+                    start = start_seconds
+                    end_timing = timing.split("-->")[1].replace(",",".").split(":")
+                    end_seconds = float(end_timing[-1]) + float(end_timing[-2])*60 + float(end_timing[-3])*3600
+                    end = end_seconds
                     line = " ".join(row_split[2:])
                     if len(line.split("{"))>1:
                         label = line.split("{")[1].replace("}","")
