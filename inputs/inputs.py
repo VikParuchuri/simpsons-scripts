@@ -1,3 +1,4 @@
+from __future__ import division
 import csv
 from percept.conf.base import settings
 from percept.utils.input import DataFormats
@@ -63,8 +64,8 @@ class SubtitleInput(BaseInput):
                 row = row.replace('\r','')
                 row_split = row.split("}")
                 if len(row_split)>2:
-                    start = row_split[0].replace("{","")
-                    end = row_split[1].replace("{","")
+                    start = float(row_split[0].replace("{",""))/24
+                    end = float(row_split[1].replace("{",""))/24
                     line = row_split[2].split("{")[0]
                     if len(row_split[2].split("{"))>1:
                         label = row_split[2].split("{")[1].replace("}","")
@@ -82,15 +83,15 @@ class SubtitleInput(BaseInput):
                 row_split = row.split("\r\n")
                 if len(row_split)>3:
                     timing = row_split[1]
-                    start = float(timing.split("-->")[0].replace(",",".").split(":")[-1])*24
-                    end = float(timing.split("-->")[1].replace(",",".").split(":")[-1])*24
+                    start = float(timing.split("-->")[0].replace(",",".").split(":")[-1])
+                    end = float(timing.split("-->")[1].replace(",",".").split(":")[-1])
                     line = " ".join(row_split[2:])
                     if len(line.split("{"))>1:
-                        line = line.split("{")[0]
                         label = line.split("{")[1].replace("}","")
+                        line = line.split("{")[0]
                     else:
                         label = ""
                     row_data.append([start,end,line,label,season,episode])
             all_sub_data.append(row_data)
-        sub_data = [["Start","End","Line","Label","Season","Episode"]] + list(chain.from_iterable(all_sub_data))
+        sub_data = [["start","end","line","label","season","episode"]] + list(chain.from_iterable(all_sub_data))
         self.data = sub_data
