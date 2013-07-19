@@ -26,6 +26,7 @@ class LoadAudioFiles(Task):
     data = Complex()
     all_files = List()
     cv = Complex()
+    res = Complex()
 
     data_format = SimpsonsFormats.dataframe
 
@@ -112,6 +113,7 @@ class LoadAudioFiles(Task):
         data = pd.concat(frames,axis=0)
         data.index = range(data.shape[0])
         label_codes = {k:i for (i,k) in enumerate(set(data['label']))}
+        reverse_label_codes = {label_codes[k]:k for k in label_codes}
         data['label_code'] = [label_codes[k] for k in data['label']]
         for c in list(data.columns):
             data[c] = data[c].real
@@ -119,6 +121,9 @@ class LoadAudioFiles(Task):
 
         cv_frame = data[data['label']!=""]
         self.cv.train(cv_frame,"",**self.cv.args)
+        self.res = self.cv.results
+        self.res = self.res[['line', 'label','label_code','result']]
+        self.res['actual_result'] = [reverse_label_codes[i] for i in self.res['result']]
         return data
 
 def calc_slope(x,y):
