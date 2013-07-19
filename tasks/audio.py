@@ -136,7 +136,7 @@ def calc_slope(x,y):
     return slope
 
 def get_indicators(vec):
-    mean = sum(vec)
+    mean = np.sum(vec)
     slope = calc_slope(np.arange(len(vec)),vec)
     std = np.std(vec)
     return mean, slope, std
