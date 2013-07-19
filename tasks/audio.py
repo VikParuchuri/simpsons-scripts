@@ -43,13 +43,13 @@ class LoadAudioFiles(Task):
         if match1 is not None:
             season = match1.group(1)
             episode = match1.group(2)
-            return season,episode
+            return int(season),int(episode)
 
         match2 = re.search('S(\d+)E(\d+)',name)
         if match2 is not None:
             season = match2.group(1)
             episode = match2.group(2)
-            return season,episode
+            return int(season),int(episode)
 
         return None, None
 
@@ -100,7 +100,6 @@ class LoadAudioFiles(Task):
 
         return [m,sf,mx,mi,sdev,amin,smin,stmin,apeak,speak,stpeak,acep,scep,stcep,aacep,sscep,stsscep,zcc,zccn]
 
-
     def extract_features(self,sample,freq):
         left = self.calc_features(sample[:,0],freq)
         right = self.calc_features(sample[:,1],freq)
@@ -121,21 +120,27 @@ class LoadAudioFiles(Task):
                 all_files += [ad_path]
         self.all_files = [f for f in all_files if f.endswith(".ogg")]
         frames = []
+        counter = 0
         for f in self.all_files:
             season,episode = self.extract_season(f)
             if season is None:
                 continue
-            f_data, fs, enc  = oggread(f)
             subtitle_frame = data[((data['season']==season) & (data['episode']==episode))]
             if subtitle_frame.shape[0]==0:
                 continue
+            print "On file {0}".format(counter)
+            counter+=1
+            if counter>5:
+                break
+            f_data, fs, enc  = oggread(f)
             current_frame = 0
             subtitle_frame = subtitle_frame.sort('start')
+            subtitle_frame.index = range(subtitle_frame.shape[0])
             audio_samples = []
             audio_features = []
             for i in xrange(0,subtitle_frame.shape[0]):
-                start = subtitle_frame['start'][i]
-                end = subtitle_frame['end'][i]
+                start = subtitle_frame['start'].iloc[i]
+                end = subtitle_frame['end'].iloc[i]
                 samp = f_data[(start*fs):(end*fs),:]
                 features = self.extract_features(samp,fs)
                 audio_features.append(features)
