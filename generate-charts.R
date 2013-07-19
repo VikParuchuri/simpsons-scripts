@@ -25,8 +25,8 @@ trans = lapply(transcripts, function(x) {
   s = gsub(" +"," ",s)
   s = gsub("[\r\t]","",s)
   tolower(s)
-  }
-               )
+}
+)
 
 all_text = paste(trans,collapse="\n")
 line_count = str_count(all_text,"\n")
@@ -54,8 +54,8 @@ all_score_frames<-foreach(z=1:length(unique_speakers)) %do%
 {
   combined<-sentDetect(tolower(voice_data$line[voice_data$speaker==unique_speakers[z]]))
   comb_words<-lapply(combined,function(x){ ret<-gsub("[^A-Za-z]","",scan_tokenizer(x))
-                                              ret<-ret[nchar(ret)>3 & nchar(ret)<20]
-                                              ret
+                                           ret<-ret[nchar(ret)>3 & nchar(ret)<20]
+                                           ret
   })
   comb_words
 }
@@ -85,3 +85,6 @@ p<-p+theme(panel.grid.major=theme_blank(),panel.grid.minor=element_blank(), plot
 p<-p+scale_x_discrete(expand=c(.2,.1)) + opts(axis.line = element_line())
 p
 
+s = 400
+a =s:(s+5)
+paste(voice_data[a,'speaker'],": ",voice_data[a,'line'])

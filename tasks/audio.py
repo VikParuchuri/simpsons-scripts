@@ -136,7 +136,7 @@ def calc_slope(x,y):
     return slope
 
 def get_indicators(vec):
-    mean = np.sum(vec)
+    mean = np.mean(vec)
     slope = calc_slope(np.arange(len(vec)),vec)
     std = np.std(vec)
     return mean, slope, std
@@ -166,10 +166,10 @@ def calc_features(vec,freq):
     mins = [np.min(i) for i in bins]
     amin,smin,stmin = get_indicators(mins)
     apeak, speak, stpeak = get_indicators(peaks)
-    fft = np.fft.fft(vec)
+    #fft = np.fft.fft(vec)
     bin_fft = []
     for i in xrange(0,bc):
-        bin_fft.append(fft[(i*binwidth):(binwidth*i + binwidth)])
+        bin_fft.append(np.fft.fft(vec[(i*binwidth):(binwidth*i + binwidth)]))
 
     cepstrums = [np.fft.ifft(np.log(np.abs(i))) for i in bin_fft]
     inter = [get_indicators(i) for i in cepstrums]
@@ -185,10 +185,10 @@ def calc_features(vec,freq):
     skewness = (u[0]**3 - 3*u[0]*u[5] + u[-1])/spread**3
 
     #Spectral slope
-    ss = calc_slope(np.arange(len(fft)),fft)
-    avss = calc_slope(bincount,[calc_slope(np.arange(len(i)),i) for i in bin_fft])
+    #ss = calc_slope(np.arange(len(fft)),fft)
+    #avss = calc_slope(bincount,[calc_slope(np.arange(len(i)),i) for i in bin_fft])
 
-    return [m,sf,mx,mi,sdev,amin,smin,stmin,apeak,speak,stpeak,acep,scep,stcep,aacep,sscep,stsscep,zcc,zccn,spread,skewness,ss,avss]
+    return [m,sf,mx,mi,sdev,amin,smin,stmin,apeak,speak,stpeak,acep,scep,stcep,aacep,sscep,stsscep,zcc,zccn,spread,skewness]
 
 def extract_features(sample,freq):
     left = calc_features(sample[:,0],freq)
