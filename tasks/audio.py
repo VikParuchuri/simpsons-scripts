@@ -14,7 +14,7 @@ import numpy as np
 from scikits.audiolab import Sndfile
 from scikits.audiolab import oggread
 import pandas as pd
-from multiprocessing import Pool
+from multiprocessing import Pool, TimeoutError
 from sklearn.ensemble import RandomForestClassifier
 import math
 import random
@@ -37,6 +37,7 @@ class LoadAudioFiles(Task):
 
     args = {
         'audio_dir' : os.path.abspath(os.path.join(settings.AUDIO_BASE_PATH, "audio")),
+        'timeout' : 600
     }
 
     def train(self, data, target, **kwargs):
@@ -66,6 +67,7 @@ class LoadAudioFiles(Task):
         """
         p = Pool(4, maxtasksperchild=50)
         audio_dir = kwargs['audio_dir']
+        timeout = kwargs['timeout']
         all_files = []
         for ad in os.listdir(audio_dir):
             ad_path = os.path.abspath(os.path.join(audio_dir,ad))
@@ -85,15 +87,16 @@ class LoadAudioFiles(Task):
             if subtitle_frame.shape[0]==0:
                 continue
 
+            """
             #To cause loop to end early, remove if needed
             label_frame = subtitle_frame[(subtitle_frame['label']!="")]
             if label_frame.shape[0]==0:
                 continue
             if counter>5:
                 break
-
+            """
             counter+=1
-            print "On file {0}".format(counter)
+            print "On file {0} Season {1} Episode {2}".format(counter,season,episode)
             f_data, fs, enc  = oggread(f)
             subtitle_frame = subtitle_frame.sort('start')
             subtitle_frame.index = range(subtitle_frame.shape[0])
@@ -103,7 +106,13 @@ class LoadAudioFiles(Task):
                 end = subtitle_frame['end'].iloc[i]
                 samp = f_data[(start*fs):(end*fs),:]
                 samps.append({'samp' : samp, 'fs' : fs})
-            results = p.map(process_subtitle, samps)
+            r = p.imap(process_subtitle, samps,chunksize=1)
+            results = []
+            for i in range(len(samps)):
+                try:
+                    results.append(r.next(timeout=timeout))
+                except TimeoutError:
+                    continue
             good_rows = [i for i in xrange(0,len(results)) if results[i]!=None]
             audio_features = [i for i in results if i!=None]
             df = pd.concat([subtitle_frame.iloc[good_rows],pd.DataFrame(audio_features)],axis=1)
