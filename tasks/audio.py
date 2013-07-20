@@ -81,7 +81,7 @@ class LoadAudioFiles(Task):
         counter = 0
         for f in self.all_files:
             season,episode = self.extract_season(f)
-            if season is None:
+            if season is None or (season==11 and episode==6):
                 continue
             subtitle_frame = data[((data['season']==season) & (data['episode']==episode))]
             if subtitle_frame.shape[0]==0:
@@ -96,7 +96,7 @@ class LoadAudioFiles(Task):
                 break
             """
             counter+=1
-            print "On file {0} Season {1} Episode {2}".format(counter,season,episode)
+            log.info("On file {0} Season {1} Episode {2}".format(counter,season,episode))
             f_data, fs, enc  = oggread(f)
             subtitle_frame = subtitle_frame.sort('start')
             subtitle_frame.index = range(subtitle_frame.shape[0])
@@ -104,6 +104,8 @@ class LoadAudioFiles(Task):
             for i in xrange(0,subtitle_frame.shape[0]):
                 start = subtitle_frame['start'].iloc[i]
                 end = subtitle_frame['end'].iloc[i]
+                if end-start>6:
+                    continue
                 samp = f_data[(start*fs):(end*fs),:]
                 samps.append({'samp' : samp, 'fs' : fs})
             r = p.imap(process_subtitle, samps,chunksize=1)
@@ -119,8 +121,11 @@ class LoadAudioFiles(Task):
             df = df.fillna(-1)
             df.index = range(df.shape[0])
             frames.append(df)
+            lab_df_shape = df[df['label']!=''].shape[0]
+            log.info("Processed {0} lines, {1} of which were labelled".format(df.shape[0],lab_df_shape))
         p.close()
         p.join()
+        log.info("Done processing episodes.")
         data = pd.concat(frames,axis=0)
         data.index = range(data.shape[0])
         label_codes = {k:i for (i,k) in enumerate(set(data['label']))}
