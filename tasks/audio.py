@@ -355,6 +355,30 @@ def make_df(datalist, labels, name_prefix=""):
     return df
 
 
+CHARACTERS = {
+    'Tertiary': [
+                 'Willy',
+                 'Hibbert',
+                 'Ralph',
+                 'Barney',
+                 'Carl',
+                 'Otto',
+                 'Dr.Nick',
+                 'Ms.K',
+                 'Teacher',
+                 'Kids',
+                 'Santa',
+                 'Lenny',
+                 'Comic Book Guy',
+                 'Quimby',
+                 'Ms.Hoover',
+                 'Patty',
+                 'Duffman',
+                 'Troy',
+                 'Kid'],
+    }
+
+
 class SequentialValidate(CrossValidate):
     args = {
         'min_years' : 10,
@@ -371,6 +395,12 @@ class SequentialValidate(CrossValidate):
         self.target_name = kwargs.get('target_name')
         random.seed(seed)
 
+        for k in CHARACTERS:
+            for i in CHARACTERS[k]:
+                data['label'][data['label']==i] = k
+        log.info(data['label'])
+        label_codes = {k:i for (i,k) in enumerate(set(data['label']))}
+        data['label_code'] = [label_codes[i] for i in data['label']]
         results = []
         self.importances = []
         unique_seasons = list(set(data[split_var]))
@@ -386,13 +416,16 @@ class SequentialValidate(CrossValidate):
             predict_data = predict_full[train_names]
 
             clf = alg.train(train_data,target, **algo.args)
-            predict_data['result_code'] = alg.predict(predict_data)
+            predict_full['result_code'] = alg.predict(predict_data)
+            predict_full['confidence'] = np.amax(clf.predict_proba(predict_data))
             self.importances.append(clf.feature_importances_)
-            results.append(predict_data)
-        reverse_label_codes = {data['label_code'][i] : data['label'][i] for i in xrange(0,data.shape[0])}
+            results.append(predict_full)
+
+        reverse_label_codes = {label_codes[k]:k for k in label_codes}
         self.results = pd.concat(results,axis=0)
         self.results['result_label'] = [reverse_label_codes[k] for k in self.results['result_code']]
-        self.calc_importance(self.importances, self.column_names)
+
+        self.calc_importance(self.importances, train_names)
 
     def train(self, data, **kwargs):
         """
