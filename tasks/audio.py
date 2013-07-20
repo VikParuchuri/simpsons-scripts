@@ -27,6 +27,7 @@ class LoadAudioFiles(Task):
     all_files = List()
     cv = Complex()
     res = Complex()
+    label_codes = Dict()
 
     data_format = SimpsonsFormats.dataframe
 
@@ -128,9 +129,9 @@ class LoadAudioFiles(Task):
         log.info("Done processing episodes.")
         data = pd.concat(frames,axis=0)
         data.index = range(data.shape[0])
-        label_codes = {k:i for (i,k) in enumerate(set(data['label']))}
-        reverse_label_codes = {label_codes[k]:k for k in label_codes}
-        data['label_code'] = [label_codes[k] for k in data['label']]
+        self.label_codes = {k:i for (i,k) in enumerate(set(data['label']))}
+        reverse_label_codes = {self.label_codes[k]:k for k in self.label_codes}
+        data['label_code'] = [self.label_codes[k] for k in data['label']]
         for c in list(data.columns):
             data[c] = data[c].real
         self.cv = CrossValidate()
@@ -274,7 +275,7 @@ class CrossValidate(Task):
         nfolds = kwargs.get('nfolds', 3)
         algo = kwargs.get('algo')
         seed = kwargs.get('seed', 1)
-        target_name = kwargs.get('target_name')
+        self.target_name = kwargs.get('target_name')
         non_predictors = kwargs.get('non_predictors')
 
         self.column_names = [l for l in list(data.columns) if l not in non_predictors]
@@ -303,7 +304,7 @@ class CrossValidate(Task):
             out_indices = list(chain.from_iterable(folds[:i] + folds[(i + 1):]))
             train_data = data.iloc[out_indices,:]
             alg = algo()
-            target = train_data[target_name]
+            target = train_data[self.target_name]
             train_data = train_data[[l for l in list(train_data.columns) if l not in non_predictors]]
             predict_data = predict_data[[l for l in list(predict_data.columns) if l not in non_predictors]]
             clf = alg.train(train_data,target,**algo.args)
@@ -327,7 +328,6 @@ class CrossValidate(Task):
         partial_result_df.index = range(partial_result_df.shape[0])
         result_df = pd.concat([partial_result_df, data], axis=1)
         self.results = result_df
-        self.calc_error(result_df)
         self.calc_importance(self.importances, self.column_names)
 
     def calc_error(self, result_df):
@@ -353,3 +353,49 @@ def make_df(datalist, labels, name_prefix=""):
     df.columns = labels
     df.index = range(df.shape[0])
     return df
+
+
+class SequentialValidate(CrossValidate):
+    args = {
+        'min_years' : 10,
+        'algo' : RandomForestTrain,
+        'split_var' : 'season',
+        'target_name' : 'label_code',
+        'non_predictors' : ["label","line","label_code", 'result_label','result_code']
+    }
+    def sequential_validate(self, data, **kwargs):
+        algo = kwargs.get('algo')
+        seed = kwargs.get('seed', 1)
+        split_var = kwargs.get('split_var')
+        non_predictors = kwargs.get('non_predictors')
+        self.target_name = kwargs.get('target_name')
+        random.seed(seed)
+
+        results = []
+        self.importances = []
+        unique_seasons = list(set(data[split_var]))
+        for s in unique_seasons:
+            train_data = data[data[split_var] != s]
+            predict_full = data[data[split_var] == s]
+
+            alg = algo()
+
+            target = train_data[self.target_name]
+            train_names = [l for l in list(train_data.columns) if l not in non_predictors]
+            train_data = train_data[train_names]
+            predict_data = predict_full[train_names]
+
+            clf = alg.train(train_data,target, **algo.args)
+            predict_data['result_code'] = alg.predict(predict_data)
+            self.importances.append(clf.feature_importances_)
+            results.append(predict_data)
+        reverse_label_codes = {data['label_code'][i] : data['label'][i] for i in xrange(0,data.shape[0])}
+        self.results = pd.concat(results,axis=0)
+        self.results['result_label'] = [reverse_label_codes[k] for k in self.results['result_code']]
+        self.calc_importance(self.importances, self.column_names)
+
+    def train(self, data, **kwargs):
+        """
+        Used in the training phase.  Override.
+        """
+        self.sequential_validate(data, **kwargs)

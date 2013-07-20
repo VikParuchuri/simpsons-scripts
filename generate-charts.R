@@ -15,7 +15,7 @@ load_or_install<-function(package_names)
   }
 }
 
-load_or_install(c("RJSONIO","ggplot2","stringr","foreach","wordcloud","lsa","MASS","openNLP","tm","fastmatch","reshape","openNLPmodels.en",'e1071'))
+load_or_install(c("RJSONIO","ggplot2","stringr","foreach","wordcloud","lsa","MASS","openNLP","tm","fastmatch","reshape","openNLPmodels.en",'e1071','gridExtra'))
 
 transcripts = fromJSON("data/transcripts.json")
 
@@ -130,3 +130,17 @@ p = p +   theme(axis.line = element_blank(),
                 axis.text.y = element_blank()) 
 p = p +labs(colour="Character",size="Number of Lines")
 p
+
+sel = ad[,c('line','label','result_label','season','episode')]
+grid.table(sel)
+
+correct_label = as.numeric(lapply(1:nrow(labelled_data),function(x){
+    all_labels = labelled_data$label[(x-1):(x+1)]
+    ret = FALSE
+    if(labelled_data$result_label[x] %in% all_labels){
+      ret = TRUE
+    }
+    ret
+}))
+
+exact_correct = labelled_data$label==labelled_data$result_label
