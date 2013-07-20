@@ -388,12 +388,14 @@ class SequentialValidate(CrossValidate):
         'non_predictors' : ["label","line","label_code", 'result_label','result_code']
     }
     def sequential_validate(self, data, **kwargs):
+        from tasks.train import Vectorizer
         algo = kwargs.get('algo')
         seed = kwargs.get('seed', 1)
         split_var = kwargs.get('split_var')
         non_predictors = kwargs.get('non_predictors')
         self.target_name = kwargs.get('target_name')
         random.seed(seed)
+        v = Vectorizer()
 
         for k in CHARACTERS:
             for i in CHARACTERS[k]:
@@ -401,6 +403,13 @@ class SequentialValidate(CrossValidate):
         log.info(data['label'])
         label_codes = {k:i for (i,k) in enumerate(set(data['label']))}
         data['label_code'] = [label_codes[i] for i in data['label']]
+        v.fit(list(data['line']),list(data['label_code']))
+        feats = v.batch_get_features(list(data['line']))
+        log.info(feats[0,:])
+        feats_frame = pd.DataFrame(feats)
+        feats_frame.columns = list(xrange(100,feats_frame.shape[1]+100))
+        data = pd.concat([data,feats_frame],axis=1)
+        data = data.fillna(-1)
         results = []
         self.importances = []
         unique_seasons = list(set(data[split_var]))
@@ -417,11 +426,13 @@ class SequentialValidate(CrossValidate):
 
             clf = alg.train(train_data,target, **algo.args)
             predict_full['result_code'] = alg.predict(predict_data)
+            log.info(predict_full['result_code'])
             predict_full['confidence'] = np.amax(clf.predict_proba(predict_data))
             self.importances.append(clf.feature_importances_)
             results.append(predict_full)
 
         reverse_label_codes = {label_codes[k]:k for k in label_codes}
+        reverse_label_codes.update({-1 : ''})
         self.results = pd.concat(results,axis=0)
         self.results['result_label'] = [reverse_label_codes[k] for k in self.results['result_code']]
 
