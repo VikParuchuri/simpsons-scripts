@@ -15,7 +15,7 @@ load_or_install<-function(package_names)
   }
 }
 
-load_or_install(c("RJSONIO","ggplot2","stringr","foreach","wordcloud","lsa","MASS","openNLP","tm","fastmatch","reshape","openNLPmodels.en"))
+load_or_install(c("RJSONIO","ggplot2","stringr","foreach","wordcloud","lsa","MASS","openNLP","tm","fastmatch","reshape","openNLPmodels.en",'e1071'))
 
 transcripts = fromJSON("data/transcripts.json")
 
@@ -85,6 +85,48 @@ p<-p+theme(panel.grid.major=theme_blank(),panel.grid.minor=element_blank(), plot
 p<-p+scale_x_discrete(expand=c(.2,.1)) + opts(axis.line = element_line())
 p
 
-s = 400
+s = 800
 a =s:(s+5)
 paste(voice_data[a,'speaker'],": ",voice_data[a,'line'])
+
+ad = read.csv('audio_data.csv',row.names=1,stringsAsFactors=FALSE)
+
+feature_names = names(ad)[7:(length(names(ad))-3)]
+labelled_data = ad[ad[,'label']!='',]
+
+tf = ad
+scaled_data = scale(tf[,feature_names])
+scaled_data = apply(scaled_data,2,function(x) {
+  x[is.na(x)] = -1
+  x
+})
+svd_train<-svd(scaled_data,2)$u
+
+newtrain<-data.frame(x=svd_train[,1],y=svd_train[,2],score=as.factor(tf$label_code))
+
+model = svm(score ~ x + y, data = newtrain)
+plot(model,newtrain)
+
+collapse_frame = do.call(rbind,by(tf[,feature_names],tf$label,function(x) apply(x,2,mean)))
+line_count = tapply(tf$label,tf$label,length)
+scaled_data = scale(collapse_frame)
+scaled_data = apply(scaled_data,2,function(x) {
+  x[is.na(x)] = -1
+  x
+})
+svd_train<-data.frame(svd(scaled_data,2)$u,line_count=line_count,label=rownames(line_count))
+svd_train <- svd_train[svd_train$X1<mean(svd_train$X1)+1.4*sd(svd_train$X1) & svd_train$X1>mean(svd_train$X1)-1.4*sd(svd_train$X1),]
+svd_train <- svd_train[svd_train$X2<mean(svd_train$X2)+1.4*sd(svd_train$X2) & svd_train$X2>mean(svd_train$X2)-1.4*sd(svd_train$X2),]
+p <- ggplot(svd_train, aes(X1, X2))
+p = p + geom_point(aes(colour = svd_train$label,size = svd_train$line_count)) + scale_size_area(max_size=20) + geom_text(data = svd_train[svd_train$line_count>10,], aes(X1,X2, label = label), hjust = 2)
+p = p +   theme(axis.line = element_blank(),
+               panel.grid.major = element_blank(),
+               panel.grid.minor = element_blank(),
+               panel.border = element_blank(),
+                axis.title.x = element_blank(),
+                axis.title.y = element_blank(),
+                axis.ticks=element_blank(),
+                axis.text.x = element_blank(),
+                axis.text.y = element_blank()) 
+p = p +labs(colour="Character",size="Number of Lines")
+p
