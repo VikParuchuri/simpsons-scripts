@@ -107,15 +107,17 @@ class LoadAudioFiles(Task):
             subtitle_frame = subtitle_frame.sort('start')
             subtitle_frame.index = range(subtitle_frame.shape[0])
             samps = []
+            good_rows = []
             for i in xrange(0,subtitle_frame.shape[0]):
                 start = subtitle_frame['start'].iloc[i]
                 end = subtitle_frame['end'].iloc[i]
                 if end-start>6 or (subtitle_frame['label'][i]=='' and oll):
-                    samps.append({'samp' : "skip", 'fs' : fs})
                     continue
                 samp = f_data[(start*fs):(end*fs),:]
                 samps.append({'samp' : samp, 'fs' : fs})
+                good_rows.append(i)
             r = p.imap(process_subtitle, samps,chunksize=1)
+            sf = subtitle_frame.iloc[good_rows]
             results = []
             for i in range(len(samps)):
                 try:
@@ -124,7 +126,11 @@ class LoadAudioFiles(Task):
                     results.append(None)
             good_rows = [i for i in xrange(0,len(results)) if results[i]!=None]
             audio_features = [i for i in results if i!=None]
-            df = pd.concat([subtitle_frame.iloc[good_rows],pd.DataFrame(audio_features)],axis=1)
+            good_sf = sf.iloc[good_rows]
+            good_sf.index = range(good_sf.shape[0])
+            audio_frame = pd.DataFrame(audio_features)
+            audio_frame.index = range(audio_frame.shape[0])
+            df = pd.concat([good_sf,audio_frame],axis=1)
             df = df.fillna(-1)
             df.index = range(df.shape[0])
             frames.append(df)
@@ -135,11 +141,16 @@ class LoadAudioFiles(Task):
         log.info("Done processing episodes.")
         data = pd.concat(frames,axis=0)
         data.index = range(data.shape[0])
+        data.index = range(data.shape[0])
+
+        for c in list(data.columns):
+            data[c] = data[c].real
+        for k in CHARACTERS:
+            for i in CHARACTERS[k]:
+                data['label'][data['label']==i] = k
         self.label_codes = {k:i for (i,k) in enumerate(set(data['label']))}
         reverse_label_codes = {self.label_codes[k]:k for k in self.label_codes}
         data['label_code'] = [self.label_codes[k] for k in data['label']]
-        for c in list(data.columns):
-            data[c] = data[c].real
         self.seq = SequentialValidate()
 
         #Do cv to get error estimates
@@ -150,7 +161,7 @@ class LoadAudioFiles(Task):
 
         exact_percent, adj_percent = compute_error(self.res)
         log.info("Exact match percent: {0}".format(exact_percent))
-        log.info("Adjacent match percent: {1}".format(adj_percent))
+        log.info("Adjacent match percent: {0}".format(adj_percent))
         #Predict in the frame
         alg = RandomForestTrain()
         target = cv_frame['label_code']
@@ -172,12 +183,12 @@ def compute_error(data):
         start = i-1
         if start<1:
             start = 1
-        end = i+1
+        end = i+2
         if end>data.shape[0]:
             end = data.shape[0]
-        sel_labs = data['label_code'][start:end]
+        sel_labs = list(data.iloc[start:end]['label_code'])
         adjacent_match.append(data['result_code'][i] in sel_labs)
-    adj_percent = len([i for i in adjacent_match if i])/data.shape[0]
+    adj_percent = sum(adjacent_match)/data.shape[0]
 
     return exact_match_percent,adj_percent
 
@@ -406,6 +417,20 @@ CHARACTERS = {
                  'Kid'],
     }
 
+"""
+from tasks.train import Vectorizer
+v = Vectorizer()
+
+
+log.info(data['label'])
+v.fit(list(data['line']),list(data['label_code']))
+feats = v.batch_get_features(list(data['line']))
+feats_frame = pd.DataFrame(feats)
+feats_frame.columns = list(xrange(100,feats_frame.shape[1]+100))
+feats_frame.index = range(feats_frame.range[0])
+data = pd.concat([data,feats_frame],axis=1)
+data = data.fillna(-1)
+"""
 
 class SequentialValidate(CrossValidate):
     args = {
@@ -416,27 +441,13 @@ class SequentialValidate(CrossValidate):
         'non_predictors' : ["label","line","label_code", 'result_label','result_code']
     }
     def sequential_validate(self, data, **kwargs):
-        from tasks.train import Vectorizer
         algo = kwargs.get('algo')
         seed = kwargs.get('seed', 1)
         split_var = kwargs.get('split_var')
         non_predictors = kwargs.get('non_predictors')
         self.target_name = kwargs.get('target_name')
         random.seed(seed)
-        v = Vectorizer()
-
-        for k in CHARACTERS:
-            for i in CHARACTERS[k]:
-                data['label'][data['label']==i] = k
-        log.info(data['label'])
         label_codes = {k:i for (i,k) in enumerate(set(data['label']))}
-        data['label_code'] = [label_codes[i] for i in data['label']]
-        v.fit(list(data['line']),list(data['label_code']))
-        feats = v.batch_get_features(list(data['line']))
-        feats_frame = pd.DataFrame(feats)
-        feats_frame.columns = list(xrange(100,feats_frame.shape[1]+100))
-        data = pd.concat([data,feats_frame],axis=1)
-        data = data.fillna(-1)
         results = []
         self.importances = []
         unique_seasons = list(set(data[split_var]))
@@ -453,14 +464,13 @@ class SequentialValidate(CrossValidate):
 
             clf = alg.train(train_data,target, **algo.args)
             predict_full['result_code'] = alg.predict(predict_data)
-            log.info(predict_full['result_code'])
             predict_full['confidence'] = np.amax(clf.predict_proba(predict_data))
             self.importances.append(clf.feature_importances_)
             results.append(predict_full)
 
         reverse_label_codes = {label_codes[k]:k for k in label_codes}
         reverse_label_codes.update({-1 : ''})
-        self.results = pd.concat(results,axis=0)
+        self.results = pd.concat(results,axis=0,ignore_index=True)
         self.results['result_label'] = [reverse_label_codes[k] for k in self.results['result_code']]
 
         self.calc_importance(self.importances, train_names)
