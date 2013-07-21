@@ -147,9 +147,11 @@ exact_correct = labelled_data$label==labelled_data$result_label
 sum(correct_label)/nrow(labelled_data)
 sum(exact_correct)/nrow(labelled_data)
 
-
 characters = unique(ad$label)
-characters = characters[characters!=""]
+
+characters = tapply(ad$result_label,ad$result_label,length)
+characters = names(characters)[characters>20]
+characters = characters[!characters %in% c("", "Tertiary","Patty","Troy","Dr.Nick")]
 
 afinn_list<-read.delim(file="AFINN-111.txt",header=FALSE,stringsAsFactors=FALSE)
 names(afinn_list)<-c("word","score")
@@ -158,7 +160,9 @@ afinn_list$word<-tolower(afinn_list$word)
 full_term_list<-afinn_list$word
 
 all_score_frames<-list()
-ri_cols<-30000
+ri_cols<-1000
+
+ad$line = iconv(ad$line,"UTF-8", "ASCII")
 
 neg_vec = colSums(do.call(rbind,lapply(which(afinn_list$score< -2),function(x){
   set.seed(x)
@@ -182,18 +186,29 @@ for(z in 1:length(characters))
   sel_data = lapply(2:(nrow(ad)-1),function(x){
     ret<-NA
     if(ad$result_label[x]==characters[z]){
-      start = x-3
-      end= x+3
-      if(start<2){
-        start = 2
+      start = x-1
+      iscs = characters[z]
+      while(start>2){
+        iscs = ad$result_label[start]
+        if(iscs!=characters[z]){
+          break
+        }
+        start = start-1
       }
-      if(end>(length(ad)-1)){
-        end = (length(ad)-1)
+      end= x+1
+      isce = characters[z]
+      while(end<(nrow(ad)-1)){
+        isce = ad$result_label[end]
+        if(isce!=characters[z]){
+          break
+        }
+        end = end+1
       }
-      isc = unique(ad$result_label[start:end])
-      isc = isc[isc!=characters[z] & isc!=""]
+      isc = unique(c(iscs,isce))
+      isc = isc[isc %in% characters]
+      isc = isc[isc!=characters[z]]
       if(length(isc)>0){
-        ret = data.frame(isc,char=rep(characters[z],length(isc)),line=rep(ad$line[x],length(isc)))
+        ret = data.frame(isc,char=rep(characters[z],length(isc)),line=rep(ad$line[x],length(isc)),stringsAsFactors=FALSE)
       }
     }
     ret
@@ -202,39 +217,48 @@ for(z in 1:length(characters))
   sel_frame = do.call(rbind,sel_data)
   combined<-tolower(gsub(paste("(",paste(ppatterns,collapse="|"),")",sep=""),"",sel_frame$line))
   tokenized_combined<-lapply(combined,scan_tokenizer)
-  ri_mat<-matrix(0,length(characters),ri_cols)
+  ri_mat<-matrix(0,nrow=length(characters),ncol=ri_cols)
   rownames(ri_mat)<-characters
-
-  for(i in 1:length(combined))
-  {
-    if(i%%10000==0)
-      print(i)
-    tokens<-tokenized_combined[[i]]
-    tokens<-tokens[tokens %in% full_term_list]
-    if(length(tokens)>0){
-      for(tok in tokens){
-        set.seed(which(full_term_list==tok)[1])
-        sample_vec<-rep(0,ri_cols)
-        s_inds<-sample(1:length(sample_vec),5)
-        sample_vec[s_inds]<-1
-        ri_mat[sel_frame[i,'isc'],]<-ri_mat[sel_frame[i,'isc'],]+sample_vec
+  
+  if(length(combined)>1){
+    for(i in 1:length(combined))
+    {
+      if(i%%10000==0)
+        print(i)
+      tokens<-tokenized_combined[[i]]
+      tokens<-tokens[tokens %in% full_term_list]
+      if(length(tokens)>0){
+        for(tok in tokens){
+          set.seed(which(full_term_list==tok)[1])
+          sample_vec<-rep(0,ri_cols)
+          s_inds<-sample(1:length(sample_vec),5)
+          sample_vec[s_inds]<-1
+          ri_mat[sel_frame[i,'isc'],]<-ri_mat[sel_frame[i,'isc'],]+sample_vec
+        }
       }
     }
+    
+    set.seed(1)
+    neg_scores = as.numeric(apply(ri_mat,1,function(x) {
+      cosine(x,neg_vec)
+    }))
+    pos_scores = as.numeric(apply(ri_mat,1,function(x) {
+      cosine(x,pos_vec)
+    }))
+    score_frame<-data.frame(character=rownames(ri_mat),pos_scores,neg_scores,score=pos_scores-neg_scores)
+    sorted_score_frame<-score_frame[order(score_frame$score),]
+    all_score_frames[[z]]<-sorted_score_frame
   }
+}
 
-  ri_mat<-ri_mat[rowSums(ri_mat)>0,]
-
-  neg_scores = as.numeric(apply(ri_mat,1,function(x) {
-    cosine(x,neg_vec)
-  }))
-  pos_scores = as.numeric(apply(ri_mat,1,function(x) {
-    cosine(x,pos_vec)
-  }))
-  score_frame<-data.frame(character=rownames(ri_mat),pos_scores,neg_scores,score=pos_scores-neg_scores)
-  sorted_score_frame<-score_frame[order(score_frame$score),]
-  all_score_frames[[z]]<-sorted_score_frame
-  rm(ri_mat)
-  gc()
+for(z in 1:length(characters)){
+  char = characters[z]
+  if(!is.null(all_score_frames[[z]])){
+    ssf = all_score_frames[[z]][!is.na(all_score_frames[[z]]$score),]
+    c <- ggplot(ssf, aes(x=character,y=score),fill=(character))
+    c = c + geom_bar() + labs(title=paste("How",char,"feels about the rest",sep=" "))
+    print(c)
+  }
 }
 
 term<-c("merkel","blair","jintao","ahmadinejad","chavez")
