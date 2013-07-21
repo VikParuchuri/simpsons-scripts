@@ -245,7 +245,7 @@ for(z in 1:length(characters))
     pos_scores = as.numeric(apply(ri_mat,1,function(x) {
       cosine(x,pos_vec)
     }))
-    score_frame<-data.frame(character=rownames(ri_mat),pos_scores,neg_scores,score=pos_scores-neg_scores)
+    score_frame<-data.frame(character=rownames(ri_mat),pos_scores,neg_scores,score=pos_scores-neg_scores,stringsAsFactors=FALSE)
     sorted_score_frame<-score_frame[order(score_frame$score),]
     all_score_frames[[z]]<-sorted_score_frame
   }
@@ -255,11 +255,31 @@ for(z in 1:length(characters)){
   char = characters[z]
   if(!is.null(all_score_frames[[z]])){
     ssf = all_score_frames[[z]][!is.na(all_score_frames[[z]]$score),]
-    c <- ggplot(ssf, aes(x=character,y=score),fill=(character))
-    c = c + geom_bar() + labs(title=paste("How",char,"feels about the rest",sep=" "))
+    c <- ggplot(ssf, aes(x=character,y=score,fill=factor(character)))
+    c = c + geom_bar() + labs(title=paste("How",char,"feels about the others",sep=" "),x="Character",y="Sentiment towards")
+    c = c + theme(legend.position="none",
+                  panel.grid.major = element_blank(),
+                  panel.grid.minor = element_blank()
+                  )
     print(c)
   }
 }
+
+total_frame = data.frame(matrix(0,nrow=length(characters),ncol=length(characters)))
+colnames(total_frame) = characters
+rownames(total_frame) = characters
+
+for(i in 1:nrow(total_frame)){
+  char = characters[i]
+  if(!is.null(all_score_frames[[i]])){
+    ssf = all_score_frames[[i]][!is.na(all_score_frames[[i]]$score),]
+    total_frame[char,ssf$character] = ssf$score
+  }
+}
+
+col = brewer.pal(ncol(total_frame),"RdYlGn")
+
+heatmap(as.matrix(total_frame),Rowv=NA, Colv=NA, col = col, scale="column", margins=c(5,10),ColSideColors=col,main="Simpsons Character Sentiments")
 
 term<-c("merkel","blair","jintao","ahmadinejad","chavez")
 term_vec<-foreach(i=1:length(all_score_frames),.combine=rbind) %do%
