@@ -89,7 +89,7 @@ s = 800
 a =s:(s+5)
 paste(voice_data[a,'speaker'],": ",voice_data[a,'line'])
 
-ad = read.csv('sseq_audio_data.csv',row.names=1,stringsAsFactors=FALSE)
+ad = read.csv('full_results.csv',row.names=1,stringsAsFactors=FALSE)
 
 feature_names = names(ad)[7:(length(names(ad))-3)]
 labelled_data = ad[ad[,'label']!='',]
@@ -133,7 +133,7 @@ p
 
 sel = ad[,c('line','label','result_label','season','episode')]
 
-labelled_data = ad[ad[,'label']!='' & ad$confidence<.5,]
+labelled_data = ad[ad[,'label']!='' & ad[,'result_code']!=-1,]
 correct_label = as.numeric(lapply(1:nrow(labelled_data),function(x){
     all_labels = labelled_data$label[(x-1):(x+1)]
     ret = FALSE

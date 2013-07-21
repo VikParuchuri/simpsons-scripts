@@ -25,7 +25,7 @@ log = logging.getLogger(__name__)
 class LoadAudioFiles(Task):
     data = Complex()
     all_files = List()
-    cv = Complex()
+    seq = Complex()
     res = Complex()
     label_codes = Dict()
 
@@ -38,7 +38,9 @@ class LoadAudioFiles(Task):
 
     args = {
         'audio_dir' : os.path.abspath(os.path.join(settings.AUDIO_BASE_PATH, "audio")),
-        'timeout' : 600
+        'timeout' : 600,
+        'only_labelled_lines' : True,
+        'processed_files_limit' : 3
     }
 
     def train(self, data, target, **kwargs):
@@ -69,6 +71,9 @@ class LoadAudioFiles(Task):
         p = Pool(4, maxtasksperchild=50)
         audio_dir = kwargs['audio_dir']
         timeout = kwargs['timeout']
+        oll = kwargs['only_labelled_lines']
+        pff = kwargs['processed_files_limit']
+
         all_files = []
         for ad in os.listdir(audio_dir):
             ad_path = os.path.abspath(os.path.join(audio_dir,ad))
@@ -88,14 +93,14 @@ class LoadAudioFiles(Task):
             if subtitle_frame.shape[0]==0:
                 continue
 
-            """
             #To cause loop to end early, remove if needed
-            label_frame = subtitle_frame[(subtitle_frame['label']!="")]
-            if label_frame.shape[0]==0:
-                continue
-            if counter>5:
+            if oll:
+                label_frame = subtitle_frame[(subtitle_frame['label']!="")]
+                if label_frame.shape[0]==0:
+                    continue
+            if pff is not None and isinstance(pff, int) and counter>=pff:
                 break
-            """
+
             counter+=1
             log.info("On file {0} Season {1} Episode {2}".format(counter,season,episode))
             f_data, fs, enc  = oggread(f)
@@ -105,7 +110,8 @@ class LoadAudioFiles(Task):
             for i in xrange(0,subtitle_frame.shape[0]):
                 start = subtitle_frame['start'].iloc[i]
                 end = subtitle_frame['end'].iloc[i]
-                if end-start>6:
+                if end-start>6 or (subtitle_frame['label'][i]=='' and oll):
+                    samps.append({'samp' : "skip", 'fs' : fs})
                     continue
                 samp = f_data[(start*fs):(end*fs),:]
                 samps.append({'samp' : samp, 'fs' : fs})
@@ -115,7 +121,7 @@ class LoadAudioFiles(Task):
                 try:
                     results.append(r.next(timeout=timeout))
                 except TimeoutError:
-                    continue
+                    results.append(None)
             good_rows = [i for i in xrange(0,len(results)) if results[i]!=None]
             audio_features = [i for i in results if i!=None]
             df = pd.concat([subtitle_frame.iloc[good_rows],pd.DataFrame(audio_features)],axis=1)
@@ -134,15 +140,17 @@ class LoadAudioFiles(Task):
         data['label_code'] = [self.label_codes[k] for k in data['label']]
         for c in list(data.columns):
             data[c] = data[c].real
-        self.cv = CrossValidate()
+        self.seq = SequentialValidate()
 
         #Do cv to get error estimates
         cv_frame = data[data['label']!=""]
-        self.cv.train(cv_frame,"",**self.cv.args)
-        self.res = self.cv.results
-        self.res = self.res[['line', 'label','label_code','result']]
-        self.res['actual_result'] = [reverse_label_codes[i] for i in self.res['result']]
+        self.seq.train(cv_frame,**self.seq.args)
+        self.res = self.seq.results
+        self.res = self.res[['line', 'label','label_code','result_code','result_label']]
 
+        exact_percent, adj_percent = compute_error(self.res)
+        log.info("Exact match percent: {0}".format(exact_percent))
+        log.info("Adjacent match percent: {1}".format(adj_percent))
         #Predict in the frame
         alg = RandomForestTrain()
         target = cv_frame['label_code']
@@ -154,6 +162,24 @@ class LoadAudioFiles(Task):
         data['result_code'] = alg.predict(predict_data)
         data['result_label'] = [reverse_label_codes[k] for k in data['result_code']]
         return data
+
+def compute_error(data):
+    exact_match = data[data['result_code']==data['label_code']]
+    exact_match_percent = exact_match.shape[0]/data.shape[0]
+
+    adjacent_match = []
+    for i in xrange(0,data.shape[0]):
+        start = i-1
+        if start<1:
+            start = 1
+        end = i+1
+        if end>data.shape[0]:
+            end = data.shape[0]
+        sel_labs = data['label_code'][start:end]
+        adjacent_match.append(data['result_code'][i] in sel_labs)
+    adj_percent = len([i for i in adjacent_match if i])/data.shape[0]
+
+    return exact_match_percent,adj_percent
 
 def calc_slope(x,y):
     x_mean = np.mean(x)
@@ -229,6 +255,8 @@ def extract_features(sample,freq):
 def process_subtitle(d):
     samp = d['samp']
     fs = d['fs']
+    if isinstance(samp,basestring):
+        return None
     try:
         features = extract_features(samp,fs)
     except Exception:
@@ -405,7 +433,6 @@ class SequentialValidate(CrossValidate):
         data['label_code'] = [label_codes[i] for i in data['label']]
         v.fit(list(data['line']),list(data['label_code']))
         feats = v.batch_get_features(list(data['line']))
-        log.info(feats[0,:])
         feats_frame = pd.DataFrame(feats)
         feats_frame.columns = list(xrange(100,feats_frame.shape[1]+100))
         data = pd.concat([data,feats_frame],axis=1)
