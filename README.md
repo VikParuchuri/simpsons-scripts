@@ -5,6 +5,12 @@ Overview
 ---------------------
 This repository enables audio and text analysis of simpsons episodes.  The usage guide below is very rough.  The code is a mixture of R and Python.  Python is used for audio processing, and R is used for sentiment analysis and charting.
 
+See these blog posts for more details:
+
+* [Scripts/Text](http://vikparuchuri.com/blog/figuring-out-which-simpsons-character-is-speaking/)
+* [Subtitles/Audio](http://vikparuchuri.com/blog/analyzing-audio-to-figure-out-which-simpsons-character-is-speaking/)
+* [Sentiment Analysis](http://vikparuchuri.com/blog/how-do-simpsons-characters-feel-about-each-other/)
+
 This is licensed under the APACHE license, please see LICENSE.txt for details.
 
 Installation
