@@ -9,7 +9,13 @@ import sys
 #Various paths
 PROJECT_PATH = path(__file__).dirname().dirname()
 
-AUDIO_BASE_PATH = "/media/vik/FreeAgent GoFlex Drive/Tv Shows/The simpsons/"
+#Where the audio tracks for simpsons episodes are
+AUDIO_BASE_PATH = ""
+AUDIO_DIR = os.path.abspath(os.path.join(AUDIO_BASE_PATH, "audio"))
+
+#Audio processing options
+ONLY_LABELLED_LINES = False
+PROCESSED_FILES_LIMIT = 3
 
 #Where to cache values during the run
 CACHE = "percept.fields.caches.MemoryCache"

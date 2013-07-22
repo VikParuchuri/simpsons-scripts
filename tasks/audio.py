@@ -37,10 +37,10 @@ class LoadAudioFiles(Task):
     help_text = "Cleanup simpsons scripts."
 
     args = {
-        'audio_dir' : os.path.abspath(os.path.join(settings.AUDIO_BASE_PATH, "audio")),
+        'audio_dir' : settings.AUDIO_DIR,
         'timeout' : 600,
-        'only_labelled_lines' : True,
-        'processed_files_limit' : 3
+        'only_labelled_lines' : settings.ONLY_LABELLED_LINES,
+        'processed_files_limit' : settings.PROCESSED_FILES_LIMIT
     }
 
     def train(self, data, target, **kwargs):
