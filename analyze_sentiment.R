@@ -15,7 +15,7 @@ load_or_install<-function(package_names)
   }
 }
 
-load_or_install(c("RJSONIO","ggplot2","stringr","foreach","wordcloud","lsa","MASS","openNLP","tm","fastmatch","reshape","openNLPmodels.en",'e1071','gridExtra'))
+load_or_install(c("RJSONIO","ggplot2","stringr","foreach","wordcloud","lsa","MASS","openNLP","tm","fastmatch","reshape","openNLPmodels.en",'e1071','gridExtra',"Hmisc", "reshape2",'sna'))
 
 
 ad = read.csv('full_results.csv',row.names=1,stringsAsFactors=FALSE)
@@ -194,4 +194,64 @@ space_sk_diag<-diag(space$sk)
 lsa_doc_vecs<-apply(space$dk,1,function(x) x %*% space_sk_diag)
 
 afinn_cols<-which(rownames(overall_matrix) %in% afinn_list$word)
+
+
+
+# Empty ggplot2 theme
+new_theme_empty <- theme_bw()
+new_theme_empty$line <- element_blank()
+new_theme_empty$rect <- element_blank()
+new_theme_empty$strip.text <- element_blank()
+new_theme_empty$axis.text <- element_blank()
+new_theme_empty$plot.title <- element_blank()
+new_theme_empty$axis.title <- element_blank()
+new_theme_empty$plot.margin <- structure(c(0, 0, -1, -1), unit = "lines",
+                                         valid.unit = 3L, class = "unit")
+
+al = total_frame + 1 + abs(min(total_frame))
+
+lc <- gplot(total_frame)  # Get graph layout coordinates
+
+al <- melt(as.matrix(al))  # Convert to list of ties only
+
+# Function to generate paths between each connected node
+edgeMaker <- function(whichRow, len = 100, curved = TRUE){
+  fromC <- lc[al[whichRow, 1], ]  # Origin
+  toC <- lc[al[whichRow, 2], ]  # Terminus
+  
+  # Add curve:
+  graphCenter <- colMeans(lc)  # Center of the overall graph
+  bezierMid <- c(fromC[1], toC[2])  # A midpoint, for bended edges
+  distance1 <- sum((graphCenter - bezierMid)^2)
+  if(distance1 < sum((graphCenter - c(toC[1], fromC[2]))^2)){
+    bezierMid <- c(toC[1], fromC[2])
+  }  # To select the best Bezier midpoint
+  bezierMid <- (fromC + toC + bezierMid) / 3  # Moderate the Bezier midpoint
+  if(curved == FALSE){bezierMid <- (fromC + toC) / 2}  # Remove the curve
+  
+  edge <- data.frame(bezier(c(fromC[1], bezierMid[1], toC[1]),  # Generate
+                            c(fromC[2], bezierMid[2], toC[2]),  # X & y
+                            evaluation = len))  # Bezier path coordinates
+  sent = total_frame[al[whichRow,1],al[whichRow,2]]
+  reverse_sent = total_frame[al[whichRow,2],al[whichRow,1]]
+  edge$Sequence <- 1:len  # For size and colour weighting in plot
+  edge$Group <- paste(al[whichRow, 1:2], collapse = ">")
+  return(edge)
+}
+
+# Generate a (curved) edge path for each pair of connected nodes
+allEdges <- lapply(1:nrow(al), edgeMaker, len = 500, curved = TRUE)
+allEdges <- do.call(rbind, allEdges)  # a fine-grained path ^, with bend ^
+
+zp1 <- ggplot(allEdges)  # Pretty simple plot code
+zp1 <- zp1 + geom_path(aes(x = x, y = y, group = Group,  colour = Sequence, size = -Sequence))  # and taper
+zp1 <- zp1 + geom_point(data = data.frame(lc),  # Add nodes
+                        aes(x = x, y = y), size = 2, pch = 21,
+                        colour = "black", fill = "gray")  # Customize gradient v
+zp1 <- zp1 + scale_colour_gradient(low = gray(0), high = gray(9/10), guide = "none")
+zp1 <- zp1 + scale_size(range = c(1/10, 1), guide = "none")  # Customize taper
+zp1 <- zp1 + new_theme_empty  # Clean up plot
+print(zp1)
+# Looks better when saved as a PNG:
+ggsave("ggplot directed network.png", zp1, h = 9/2, w = 9/2, type = "cairo-png")
 

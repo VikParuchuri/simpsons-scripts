@@ -1,4 +1,4 @@
-percept
+percept==0.14
 praw==2.1.3
 Scrapy==0.16.5
 ipython==0.13.2

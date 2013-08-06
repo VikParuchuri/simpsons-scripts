@@ -118,7 +118,7 @@ svd_train<-data.frame(svd(scaled_data,2)$u,line_count=line_count,label=rownames(
 svd_train <- svd_train[svd_train$X1<mean(svd_train$X1)+1.4*sd(svd_train$X1) & svd_train$X1>mean(svd_train$X1)-1.4*sd(svd_train$X1),]
 svd_train <- svd_train[svd_train$X2<mean(svd_train$X2)+1.4*sd(svd_train$X2) & svd_train$X2>mean(svd_train$X2)-1.4*sd(svd_train$X2),]
 p <- ggplot(svd_train, aes(X1, X2))
-p = p + geom_point(aes(colour = svd_train$label,size = log(svd_train$line_count))) + scale_size_area(max_size=20) + geom_text(data = svd_train[svd_train$line_count>100,], aes(X1,X2, label = label), hjust = 2)
+p = p + geom_point(aes(colour = svd_train$label,size = log(svd_train$line_count))) + scale_size_area(max_size=20) + geom_text(data = svd_train[svd_train$line_count>10,], aes(X1,X2, label = label), hjust = 2)
 p = p +   theme(axis.line = element_blank(),
                panel.grid.major = element_blank(),
                panel.grid.minor = element_blank(),
